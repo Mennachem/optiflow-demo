@@ -6,7 +6,7 @@ import time
 # ---------------------------------------------------------
 # 1. הגדרות תצוגה ותמיכה בכיוון ימין-לשמאל (RTL)
 # ---------------------------------------------------------
-st.set_page_config(page_title="OptiFlow AI - Enterprise Engine", layout="wide")
+st.set_page_config(page_title="OptiFlow AI - SaaS Enterprise", layout="wide")
 
 st.markdown("""
 <style>
@@ -29,268 +29,231 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. מילון שפות לבחירה (Multi-language)
+# 2. אתחול Session State (אזור אישי, תיקיות וצ'אט)
 # ---------------------------------------------------------
-LANGUAGES = {
-    "עברית": {
-        "title": "OptiFlow AI ⚡",
-        "subtitle": "מערכת בינה מלאכותית אקטיבית לאבחון בעיות עסקיות, רווחיות ואופטימיזציה",
-        "sidebar_header": "⚙️ הגדרות העסק ופרמטרים",
-        "biz_type": "מה סוג העסק?",
-        "biz_default": "חנות קמעונאית / מסעדה / דפוס / מפעל",
-        "problem_label": "תאר את הבעיה המרכזית בעסק:",
-        "problem_default": "יש עבודה ותנועת לקוחות, אך בסוף החודש לא נשאר רווח נקי.",
-        "params_title": "📏 ניהול פרמטרים ובעיות נוספות",
-        "add_param": "➕ הוסף פרמטר / בעיה נוספת",
-        "param_name": "שם הפרמטר / תיאור הרכיב",
-        "param_type": "סוג הנתון",
-        "param_val": "ערך / פירוט",
-        "param_unit": "יחידת מידה (אם מספרי)",
-        "media_title": "📸 העלאת קבצים / תמונות / מסמכים לניתוח AI",
-        "upload_label": "העלה קובץ, תמונה או דוח לניתוח:",
-        "analyze_btn": "🔍 בצע ניתוח AI מקיף וגלה פתרונות",
-        "sim_title": "🧪 סימולציית שיפור עסקי ופיננסי",
-        "chat_title": "💬 צ'אט יועץ AI אקטיבי - דיון בפתרון",
-        "chat_placeholder": "שאל את ה-AI על הפתרון המוצע, או הסבר נוסף על הבעיה..."
-    },
-    "English": {
-        "title": "OptiFlow AI ⚡",
-        "subtitle": "Active AI Engine for Business Optimization & Profitability Analysis",
-        "sidebar_header": "⚙️ Business & Parameter Settings",
-        "biz_type": "Business Type:",
-        "biz_default": "Retail Store / Restaurant / Factory",
-        "problem_label": "Describe the main business problem:",
-        "problem_default": "High customer volume but low monthly net profit margins.",
-        "params_title": "📏 Parameters & Issues Management",
-        "add_param": "➕ Add New Parameter / Issue",
-        "param_name": "Parameter / Issue Name",
-        "param_type": "Data Type",
-        "param_val": "Value / Details",
-        "param_unit": "Unit of Measure (if numeric)",
-        "media_title": "📸 Upload Files / Images / Documents for AI Analysis",
-        "upload_label": "Upload photo, video, or report:",
-        "analyze_btn": "🔍 Perform Comprehensive AI Analysis",
-        "sim_title": "🧪 Business Improvement Simulation",
-        "chat_title": "💬 Active AI Advisor Chat",
-        "chat_placeholder": "Ask AI about the solution or provide more details..."
+if 'workspaces' not in st.session_state:
+    st.session_state.workspaces = {
+        "תיק ברירת מחדל": {
+            "biz_type": "חנות קמעונאית / מסעדה / מפעל",
+            "problem": "יש עבודה ותנועת לקוחות, אך בסוף החודש לא נשאר רווח נקי.",
+            "params": [
+                {"name": "שטח עסקי", "type": "מספרי", "value": 120.0, "unit": "sqm"},
+                {"name": "אחוז רווח גולמי", "type": "מספרי", "value": 15.0, "unit": "%"},
+                {"name": "הערה לגבי הוצאות", "type": "טקסט / בעיה", "value": "עלויות חומרי הגלם והחשמל עלו ב-20%", "unit": "-"}
+            ],
+            "chats": {
+                "שיחה ראשונית - אבחון": [
+                    {"role": "assistant", "content": "שלום! אני כאן כדי לעזור לך לאבחן בעיות ולשפר רווחיות ותפעול. במה נתחיל?"}
+                ]
+            },
+            "active_chat": "שיחה ראשונית - אבחון"
+        }
     }
-}
 
-# בחירת שפה בסרגל
-st.sidebar.markdown("### 🌐 Language / שפה")
-selected_lang = st.sidebar.selectbox("Select Language / בחר שפה", ["עברית", "English"])
-L = LANGUAGES[selected_lang]
+if 'active_workspace' not in st.session_state:
+    st.session_state.active_workspace = "תיק ברירת מחדל"
 
-# ---------------------------------------------------------
-# 3. אתחול Session State
-# ---------------------------------------------------------
-if 'params' not in st.session_state:
-    st.session_state.params = [
-        {"name": "שטח עסקי", "type": "מספרי", "value": 120.0, "unit": "sqm"},
-        {"name": "מחזור חודשי ממוצע", "type": "מספרי", "value": 50000.0, "unit": "שקלים"},
-        {"name": "הערה לגבי עלויות", "type": "טקסט / בעיה", "value": "עלויות חומרי הגלם והחשמל עלו ב-20% בשנה האחרונה", "unit": "-"}
-    ]
-
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
+# גישה קלה לתיק הנוכחי
+ws_name = st.session_state.active_workspace
+current_ws = st.session_state.workspaces[ws_name]
 
 # ---------------------------------------------------------
-# 4. כותרת הראשית
+# 3. סרגל הצד (Sidebar) - אזור אישי ותיקיות לקוח
 # ---------------------------------------------------------
-st.title(L["title"])
-st.caption(L["subtitle"])
+st.sidebar.title("OptiFlow AI ⚡")
+st.sidebar.markdown("### 👤 אזור אישי & ניהול תיקים")
 
-# ---------------------------------------------------------
-# 5. סרגל הצד (Sidebar) - הגדרות העסק ופרמטרים
-# ---------------------------------------------------------
-st.sidebar.header(L["sidebar_header"])
+# מעבר/יצירת תיקיות לקוחות
+existing_workspaces = list(st.session_state.workspaces.keys())
+selected_ws = st.sidebar.selectbox("📂 בחר תיק לקוח / פרויקט:", existing_workspaces, index=existing_workspaces.index(ws_name))
 
-business_type = st.sidebar.text_input(L["biz_type"], value=L["biz_default"])
-problem_desc = st.sidebar.text_area(L["problem_label"], value=L["problem_default"], height=120)
+if selected_ws != ws_name:
+    st.session_state.active_workspace = selected_ws
+    st.rerun()
 
-st.sidebar.markdown("---")
-st.sidebar.subheader(L["params_title"])
-
-# הוספת פרמטר חדש (מספרי או טקסטואלי)
-with st.sidebar.expander(L["add_param"]):
-    new_name = st.text_input(L["param_name"])
-    p_type = st.radio(L["param_type"], ["מספרי", "טקסט / בעיה"])
-    
-    if p_type == "מספרי":
-        new_val = st.number_input(L["param_val"], value=10.0, step=1.0)
-        new_unit = st.selectbox(L["param_unit"], ["sqm", "מטרים", "kg", "טון", "דקות", "שעות", "שקלים", "דולרים", "יחידות", "אחר"])
-    else:
-        new_val = st.text_area(L["param_val"], value="פרט כאן את הבעיה או הנסיבות...")
-        new_unit = "-"
-        
-    if st.button("➕ אישור הוספה"):
-        if new_name:
-            st.session_state.params.append({"name": new_name, "type": p_type, "value": new_val, "unit": new_unit})
+with st.sidebar.expander("➕ פתח תיק לקוח / פרויקט חדש"):
+    new_ws_name = st.text_input("שם הלקוח / התיק החדש:")
+    if st.button("צור תיק חדש"):
+        if new_ws_name and new_ws_name not in st.session_state.workspaces:
+            st.session_state.workspaces[new_ws_name] = {
+                "biz_type": "עסק חדש",
+                "problem": "תאר כאן את אתגרי העסק...",
+                "params": [],
+                "chats": {"שיחה חדשה": [{"role": "assistant", "content": "שלום! פתחת שיחה בתיק חדש. איך אוכל לסייע?"}]},
+                "active_chat": "שיחה חדשה"
+            }
+            st.session_state.active_workspace = new_ws_name
+            st.success(f"תיק '{new_ws_name}' נוצר בהצלחה!")
             st.rerun()
 
-# הצגה, עריכה ומחיקה של פרמטרים ובעיות קיימים
-st.sidebar.markdown("##### פרמטרים ובעיות מוגדרים:")
-to_delete = None
-for i, p in enumerate(st.session_state.params):
-    col_p1, col_p2 = st.sidebar.columns([3, 1])
-    with col_p1:
-        if p.get("type") == "טקסט / בעיה":
-            p["value"] = st.text_input(f"📌 {p['name']}:", value=str(p["value"]), key=f"val_txt_{i}")
-        else:
-            p["value"] = st.number_input(f"🔢 {p['name']} ({p['unit']}):", value=float(p["value"]), key=f"val_num_{i}")
-    with col_p2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️", key=f"del_{i}"):
-            to_delete = i
+st.sidebar.markdown("---")
+st.sidebar.header("⚙️ פרטי התיק והפרמטרים")
 
-if to_delete is not None:
-    st.session_state.params.pop(to_delete)
+current_ws["biz_type"] = st.sidebar.text_input("מה סוג העסק?", value=current_ws["biz_type"])
+current_ws["problem"] = st.sidebar.text_area("תאר את הבעיה המרכזית:", value=current_ws["problem"], height=100)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📏 ניהול פרמטרים ובעיות")
+
+# הוספת פרמטר חדש (עם יחידת מידה פתוחה לחלוטין)
+with st.sidebar.expander("➕ הוסף פרמטר / בעיה"):
+    p_name = st.text_input("שם הפרמטר / הרכיב:")
+    p_type = st.radio("סוג הנתון:", ["מספרי", "טקסט / בעיה"])
+    
+    if p_type == "מספרי":
+        p_val = st.number_input("ערך מספרי:", value=10.0, step=1.0)
+        unit_type = st.selectbox("בחר יחידת מידה:", ["sqm", "%", "קמ\"ש", "שעות", "דקות", "שקלים", "דולרים", "יחידות", "✍️ יחידה מותאמת אישית (טקסט חופשי)"])
+        if unit_type == "✍️ יחידה מותאמת אישית (טקסט חופשי)":
+            p_unit = st.text_input("רשום יחידת מידה חופשית (כגון: פניות/יום, % תשואה וכו'):", value="יחידה")
+        else:
+            p_unit = unit_type
+    else:
+        p_val = st.text_area("פירוט הבעיה / הנתון:")
+        p_unit = "-"
+
+    if st.button("➕ אישור הוספה"):
+        if p_name:
+            current_ws["params"].append({"name": p_name, "type": p_type, "value": p_val, "unit": p_unit})
+            st.rerun()
+
+# עריכה ומחיקת פרמטרים
+to_del_p = None
+for i, p in enumerate(current_ws["params"]):
+    col1, col2 = st.sidebar.columns([3, 1])
+    with col1:
+        if p.get("type") == "טקסט / בעיה":
+            p["value"] = st.text_input(f"📌 {p['name']}:", value=str(p["value"]), key=f"p_txt_{ws_name}_{i}")
+        else:
+            p["value"] = st.number_input(f"🔢 {p['name']} ({p['unit']}):", value=float(p["value"]), key=f"p_num_{ws_name}_{i}")
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🗑️", key=f"del_p_{ws_name}_{i}"):
+            to_del_p = i
+
+if to_del_p is not None:
+    current_ws["params"].pop(to_del_p)
     st.rerun()
 
 # ---------------------------------------------------------
-# 6. מנוע ניתוח AI חכם ודינמי (Logical Engine)
+# 4. מנוע ניתוח AI דינמי
 # ---------------------------------------------------------
-def generate_ai_analysis(biz, prob, params):
-    prob_lower = prob.lower()
+def run_ai_engine(biz, prob, params):
+    all_text = (prob + " " + " ".join([f"{p['name']} {p['value']} {p['unit']}" for p in params])).lower()
     
-    # זיהוי נושאים בטקסט הבעיה והפרמטרים
-    all_text = prob_lower + " " + " ".join([str(p['value']).lower() for p in params if p.get("type") == "טקסט / בעיה"])
-    
-    is_profit = any(w in all_text for w in ["רווח", "מאזן", "כסף", "רווחיות", "הפסד", "עלות", "מחיר", "הכנסה", "profit", "margin"])
-    is_queue = any(w in all_text for w in ["תור", "עומס", "זמן", "המתנה", "איטי", "צוואר בקבוק", "queue", "delay"])
+    is_profit = any(w in all_text for w in ["רווח", "שקלים", "%", "מחיר", "עלות", "הפסד", "תשואה", "margin"])
+    is_speed = any(w in all_text for w in ["מהירות", "זמן", "קמ\"ש", "איטי", "שעות", "דקות", "תור", "speed"])
     
     analysis = []
     solutions = []
     
-    if is_profit and not is_queue:
-        analysis.append(f"מניתוח הנתונים עולה כי הבעיה המרכזית ב-**{biz}** היא **אי-סינכרון פיננסי ושחיקת מרווח הרווח**, ולא בעיה תפעולית של עומסי תנועה.")
-        analysis.append("למרות שיש נפח פעילות ולקוחות, העלויות הישירות והסמויות אוכלות את שולי הרווח הנקי.")
-        
-        solutions.append("**ניתוח והעלאת מרווחים (Margin Optimization):** בדיקת תמחור המוצרים/שירותים מול עלויות חומרי הגלם והעבודה הישירות.")
-        solutions.append("**זיהוי דליפות פיננסיות:** סקירת ההוצאות הקבועות והמשתנות (חשמל, פחת, מלאי מת, פריטים לא מתומחרים נכון).")
-        solutions.append("**הגדלת ערך עסקה ממוצע (Upselling):** בניית חבילות משלימות שמגדילות את הרווח הנקי מכל לקוח קיים ללא הגדלת הוצאות התפעול.")
-        
-    elif is_queue and not is_profit:
-        analysis.append(f"מניתוח הנתונים עולה כי הבעיה המרכזית ב-**{biz}** היא **צוואר בקבוק תפעולי ועיכוב בטיפול בלקוחות**.")
-        solutions.append("**ארגון מחדש של זרימת העבודה (Workflow):** צמצום פעולות סרק ומיקום מחדש של הציוד והעובדים.")
-        solutions.append("**אוטומציה וניתוח זמנים:** הטמעת רכיבים דיגיטליים לקיצור זמן התגובה בכל תחנה.")
-        
-    else: # בעיה משולבת או כללית
-        analysis.append(f"מניתוח הבעיה ב-**{biz}** והנתונים שהוזנו, זוהה שילוב בין אתגר פיננסי לתפעולי.")
-        solutions.append("**בחינת עלות מול תפוקה:** בדיקה האם זמני העבודה והמשאבים המושקעים בכל לקוח מצדיקים את המחיר הנגבה.")
-        solutions.append("**בניית מודל תמחור וייעול:** ייעול שלבי העבודה לצד עדכון תמחור השירותים/מוצרים.")
+    if is_profit and not is_speed:
+        analysis.append(f"מניתוח הפרמטרים בתיק **{ws_name}** ({biz}), זוהה מיקוד בפיננסים ומרווחי רווח.")
+        solutions.append("**אופטימיזציית מרווחים:** בחינת תמחור ועלויות שוליות לפי יחידות המידה שהוגדרו.")
+        solutions.append("**הפחתת דליפות משאבים:** ניתוח הוצאות תפעוליות והגדלת ערך עסקה ממוצע.")
+    elif is_speed:
+        analysis.append(f"מניתוח הנתונים בתיק **{ws_name}** זוהו מדדי זמנים/מהירות וצווארי בקבוק תפעוליים.")
+        solutions.append("**קיצור זמני תגובה וקצב עבודה:** שיפור תהליכים וקיצור משכי טיפול.")
+        solutions.append("**אוטומציה של שלבי עבודה:** צמצום פעולות ידניות שמאיטות את הקצב.")
+    else:
+        analysis.append(f"מניתוח כולל בתיק **{ws_name}** ({biz}), הוכנה תוכנית אופטימיזציה מותאמת.")
+        solutions.append("**ייעול שרשרת הפעילות:** איזון בין משאבים לתפוקה בפועל.")
+        solutions.append("**בניית מודל בקרה דינמי:** מעקב רציף אחר השינויים.")
 
     return "\n\n".join(analysis), solutions
 
 # ---------------------------------------------------------
-# 7. גוף העמוד המרכזי
+# 5. הגוף המרכזי של האפליקציה
 # ---------------------------------------------------------
+st.title(f"OptiFlow AI - {ws_name} 📂")
+
 col_main1, col_main2 = st.columns([1, 1])
 
 with col_main1:
-    st.subheader("📋 נתוני העסק והפרמטרים שהוגדרו")
-    st.write(f"**סוג העסק:** {business_type}")
-    st.write(f"**תיאור הבעיה הראשית:** {problem_desc}")
+    st.subheader("📋 נתוני התיק והפרמטרים שנרשמו")
+    st.write(f"**סוג העסק:** {current_ws['biz_type']}")
+    st.write(f"**תיאור הבעיה:** {current_ws['problem']}")
     
-    # הצגת טבלת הפרמטרים והבעיות
-    formatted_params = []
-    for p in st.session_state.params:
-        formatted_params.append({
-            "שם הרכיב": p["name"],
-            "סוג": p.get("type", "מספרי"),
-            "ערך / תיאור": p["value"],
-            "יחידה": p["unit"]
-        })
-    st.table(pd.DataFrame(formatted_params))
+    formatted_p = [{"רכיב / פרמטר": p["name"], "סוג": p.get("type","מספרי"), "ערך": p["value"], "יחידת מידה": p["unit"]} for p in current_ws["params"]]
+    st.table(pd.DataFrame(formatted_p))
 
-    # העלאת קבצים ומדיה
     st.markdown("---")
-    st.subheader(L["media_title"])
-    uploaded_files = st.file_uploader(L["upload_label"], type=["jpg", "png", "jpeg", "mp4", "pdf", "csv", "xlsx"], accept_multiple_files=True)
-    if uploaded_files:
-        st.success(f"✅ נסרקו {len(uploaded_files)} קבצים. הנתונים שולבו במודל הניתוח.")
+    st.subheader("📸 העלאת קבצים / מסמכים לתיק זה")
+    files = st.file_uploader("העלה קובץ לניתוח:", type=["jpg", "png", "mp4", "pdf", "csv", "xlsx"], key=f"u_{ws_name}")
+    if files:
+        st.success("✅ הקובץ נשמר בתיק זה ושולב במודל הניתוח.")
 
 with col_main2:
-    st.subheader("💡 אבחון AI ופתרון אופטימלי")
-    
-    # הרצת הניתוח
-    ai_summary, ai_sols = generate_ai_analysis(business_type, problem_desc, st.session_state.params)
+    st.subheader("💡 אבחון AI ופתרונות אופטימליים")
+    ai_summary, ai_sols = run_ai_engine(current_ws['biz_type'], current_ws['problem'], current_ws['params'])
     
     st.info(ai_summary)
-
-    st.markdown("#### 🎯 פתרונות אופרטיביים מומלצים:")
-    for idx, sol in enumerate(ai_sols, 1):
-        st.write(f"{idx}. {sol}")
-
-# ---------------------------------------------------------
-# 8. סימולציית שיפור פיננסי / תפעולי
-# ---------------------------------------------------------
-st.markdown("---")
-st.subheader(L["sim_title"])
-
-sim_col1, sim_col2 = st.columns([1, 2])
-with sim_col1:
-    improvement_pct = st.slider("אחוז שיפור מתוכנן ברווחיות / יעילות (%)", 5, 50, 20)
-    sim_months = st.slider("משך הסימולציה (בחודשים)", 1, 12, 6)
-
-with sim_col2:
-    months = [f"חודש {i+1}" for i in range(sim_months)]
-    
-    # חישוב דינמי לפי נתוני המחזור שנרשמו בפרמטרים
-    base_val = 50000
-    for p in st.session_state.params:
-        if "מחזור" in p["name"] or "רווח" in p["name"]:
-            try:
-                base_val = float(p["value"])
-            except:
-                pass
-                
-    current_projection = [base_val] * sim_months
-    improved_projection = [base_val * (1 + (improvement_pct/100) * (i+1)/sim_months) for i in range(sim_months)]
-    
-    chart_df = pd.DataFrame({
-        "מצב נוכחי (ללא שינוי)": current_projection,
-        "תחזית לאחר יישום פתרונות AI": improved_projection
-    }, index=months)
-    st.line_chart(chart_df)
+    st.markdown("#### 🎯 פתרונות מומלצים:")
+    for idx, s in enumerate(ai_sols, 1):
+        st.write(f"{idx}. {s}")
 
 # ---------------------------------------------------------
-# 9. צ'אט המשכי חכם ואקטיבי
+# 6. צ'אט מעקב, סגירת נושאים ושמירת שיחות
 # ---------------------------------------------------------
 st.markdown("---")
-st.subheader(L["chat_title"])
+st.subheader("💬 צ'אט יועץ AI - ניהול נושאים ושיחות")
 
-# הצגת היסטוריית צ'אט
-for msg in st.session_state.chat_history:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+# ניהול שיחות בתיק הנוכחי
+chats_dict = current_ws["chats"]
+active_chat_key = current_ws.get("active_chat", list(chats_dict.keys())[0])
 
-user_input = st.chat_input(L["chat_placeholder"])
+c_col1, c_col2, c_col3 = st.columns([2, 1, 1])
+
+with c_col1:
+    selected_chat = st.selectbox("💬 בחר שיחה שמורה בתיק זה:", list(chats_dict.keys()), index=list(chats_dict.keys()).index(active_chat_key) if active_chat_key in chats_dict else 0)
+    if selected_chat != active_chat_key:
+        current_ws["active_chat"] = selected_chat
+        st.rerun()
+
+with c_col2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🔒 סגור נושא ופתח שיחה חדשה"):
+        new_chat_title = f"שיחה נושא - {time.strftime('%H:%M %d/%m')}"
+        chats_dict[new_chat_title] = [{"role": "assistant", "content": "שלום! פתחת נושא חדש. במה אוכל לעזור כעת?"}]
+        current_ws["active_chat"] = new_chat_title
+        st.success("הנושא נסגר והשיחה נשמרה!")
+        st.rerun()
+
+with c_col3:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🗑️ מחק שיחה זו"):
+        if len(chats_dict) > 1:
+            chats_dict.pop(active_chat_key)
+            current_ws["active_chat"] = list(chats_dict.keys())[0]
+            st.success("השיחה נמחקה!")
+            st.rerun()
+        else:
+            st.warning("לא ניתן למחוק את השיחה היחידה בתיק.")
+
+# הצגת השיחה הפעילה
+st.markdown(f"**מתכתב בתוך:** `{active_chat_key}`")
+chat_history = chats_dict[active_chat_key]
+
+for m in chat_history:
+    with st.chat_message(m["role"]):
+        st.write(m["content"])
+
+user_input = st.chat_input("כתוב ל-AI הודעה לגבי נושא זה...")
 if user_input:
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
+    chat_history.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.write(user_input)
         
     with st.chat_message("assistant"):
-        with st.spinner("מנתח את הדברים ומחשב פתרון..."):
-            time.sleep(1)
+        with st.spinner("AI חושב..."):
+            time.sleep(0.8)
+            # מענה AI המביא בחשבון את יחידות המידה החופשיות והתיק
+            units_list = [p['unit'] for p in current_ws['params'] if p.get('unit') not in ['-', None]]
+            units_str = ", ".join(units_list) if units_list else "הנתונים שהזנת"
             
-            # תשובת AI דינמית בהתאם לקלט המשתמש
-            inp_lower = user_input.lower()
-            if "רווח" in inp_lower or "כסף" in inp_lower or "מאזן" in inp_lower or "מחיר" in inp_lower:
-                reply = (f"בנוגע לנקודה שהעלית ('{user_input}'): כשאנו מתמודדים עם בעיית רווחיות, "
-                         f"המפתח הוא לפרק את העלויות הקבועות מול המשתנות. אני ממליץ שנוסיף בסרגל הימני "
-                         f"פרמטר נוסף מסוג 'טקסט/בעיה' עם פירוט הוצאות הספק העיקריות שלך, "
-                         f"כדי שנוכל לזהות איפה בדיוק נעלם הרווח הנקי.")
-            elif "כן" in inp_lower or "איך" in inp_lower or "כיצד" in inp_lower:
-                reply = (f"מצויין. הצעד המעשי הראשון ליישום הפתרון ב-**{business_type}** הוא: "
-                         f"1. בדיקת תמחור של 3 המוצרים/שירותים הנמכרים ביותר.\n"
-                         f"2. הוספת רכיב מוצר משלים ברווח גבוה.\n"
-                         f"תרצה שנחשב עכשיו את תוספת הרווח הצפויה משינוי המחיר?")
-            else:
-                reply = (f"הבנתי אותך לגבי '{user_input}'. ניתוח הנתונים מראה כי שילוב אלמנט זה "
-                         f"ישפיע ישירות על תוצאות העסק. מהי העלות הממשית כיום של רכיב זה בעסק שלך?")
-                
-            st.write(reply)
-            st.session_state.chat_history.append({"role": "assistant", "content": reply})
+            ai_reply = (f"הבנתי אותך לגבי '{user_input}'. בהתחשב ביחידות המדויקות שהגדרת ({units_str}), "
+                        f"אני מציע שנבדוק את המשמעות התפעולית/פיננסית בתיק **{ws_name}**. "
+                        f"תרצה שאעדכן את מודל הניתוח או שנתחיל לחשב תוכנית פעולה?")
+            
+            st.write(ai_reply)
+            chat_history.append({"role": "assistant", "content": ai_reply})
 

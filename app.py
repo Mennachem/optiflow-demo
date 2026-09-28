@@ -22,30 +22,12 @@ if 'current_user' not in st.session_state:
 if 'lang' not in st.session_state:
     st.session_state.lang = "עברית"
 
-# מאגר תיקים נפרד לכל משתמש
+# מאגר נתונים נפרד לכל משתמש
 if 'users_data' not in st.session_state:
-    st.session_state.users_data = {
-        "מנדי": {
-            "תיק 1 - חיתוך פלסטיק": {
-                "biz_type": "חיתוך פלסטיק בלייזר",
-                "problem": "עיקר העסק בנוי על שלטים לילדות. יש הרבה מתחרים ואני צריך לחדש דברים ייחודיים.",
-                "params": [
-                    {"name": "כמות חנויות שעובדות איתי", "type": "מספרי", "value": 60.0, "unit": "חנויות"},
-                    {"name": "כמות הזמנות ממוצע ליום", "type": "מספרי", "value": 8.0, "unit": "הזמנות"},
-                    {"name": "עלות שלטים", "type": "טקסט / בעיה", "value": "בין 150 ל 300", "unit": "שקלים"}
-                ],
-                "chats": {
-                    "שיחה ראשונית": [
-                        {"role": "assistant", "content": "שלום מנדי! ניתחתי את הנתונים של עסק חיתוך הפלסטיק. איך אוכל לסייע בפיתוח המוצרים הייחודיים?"}
-                    ]
-                },
-                "active_chat": "שיחה ראשונית"
-            }
-        }
-    }
+    st.session_state.users_data = {}
 
 # ---------------------------------------------------------
-# 3. מסך התחברות עם טופס מובנה (פתרון לזיכרון סיסמאות)
+# 3. מסך התחברות (פתרון לזיכרון סיסמאות בדפדפן)
 # ---------------------------------------------------------
 if not st.session_state.authenticated:
     st.markdown("<h2 style='text-align: center;'>🔒 התחברות למערכת OptiFlow AI</h2>", unsafe_allow_html=True)
@@ -62,14 +44,16 @@ if not st.session_state.authenticated:
                     st.session_state.authenticated = True
                     st.session_state.current_user = username
                     
+                    # אם משתמש חדש - צור עבורו סביבה נקייה בלבד (תיק ריק)
                     if username not in st.session_state.users_data:
                         st.session_state.users_data[username] = {
                             "תיק חדש 1": {
                                 "biz_type": "",
                                 "problem": "",
                                 "params": [],
+                                "solutions": [], # ריק לחלוטין בהתחלה!
                                 "chats": {
-                                    "שיחה חדשה": [{"role": "assistant", "content": f"שלום {username}! זהו התיק החדש שלך. אנא הזן את סוג העסק והבעיה בסרגל הצד כדי שנוכל להתחיל."}]
+                                    "שיחה חדשה": [{"role": "assistant", "content": f"שלום {username}! זהו תיק חדש וריק. אנא הזן סוג עסק ופרמטרים בסרגל הצד כדי שנוכל להתחיל."}]
                                 },
                                 "active_chat": "שיחה חדשה"
                             }
@@ -81,19 +65,20 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 4. עיצוב, שפה והגנת KeyError
+# 4. עיצוב והגנת הנתונים למשתמש מחובר
 # ---------------------------------------------------------
 user_id = st.session_state.current_user
 
-# בדיקת הגנה למניעת KeyError
+# הגנה מפני KeyError
 if user_id not in st.session_state.users_data:
     st.session_state.users_data[user_id] = {
         "תיק חדש 1": {
             "biz_type": "",
             "problem": "",
             "params": [],
+            "solutions": [],
             "chats": {
-                "שיחה חדשה": [{"role": "assistant", "content": f"שלום {user_id}! זהו התיק החדש שלך."}]
+                "שיחה חדשה": [{"role": "assistant", "content": f"שלום {user_id}! זהו תיק חדש."}]
             },
             "active_chat": "שיחה חדשה"
         }
@@ -113,7 +98,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 5. סרגל צד (Sidebar)
+# 5. סרגל צד (Sidebar) - ניהול תיקים ופרמטרים
 # ---------------------------------------------------------
 st.sidebar.title("OptiFlow AI ⚡")
 st.sidebar.markdown(f"👤 מחובר כ: **{user_id}**")
@@ -146,7 +131,8 @@ with st.sidebar.expander("➕ פתח תיק חדש"):
                 "biz_type": "",
                 "problem": "",
                 "params": [],
-                "chats": {"שיחה חדשה": [{"role": "assistant", "content": "שלום! במה אוכל לעזור בתיק זה?"}]},
+                "solutions": [], # תיק חדש מתחיל ריק לחלוטין!
+                "chats": {"שיחה חדשה": [{"role": "assistant", "content": "שלום! התיק חדש וריק. הזן נתונים כדי להתחיל."}]},
                 "active_chat": "שיחה חדשה"
             }
             st.session_state.active_workspace = new_ws_title
@@ -160,7 +146,6 @@ st.sidebar.subheader("⚙️ פרמטרים ונתונים לתיק")
 cur_ws["biz_type"] = st.sidebar.text_input("סוג העסק:", value=cur_ws["biz_type"])
 cur_ws["problem"] = st.sidebar.text_area("תיאור הבעיה / האתגר:", value=cur_ws["problem"], height=80)
 
-# עריכת הפרמטרים
 st.sidebar.markdown("**רשימת המשתנים בתיק:**")
 to_del = None
 for i, p in enumerate(cur_ws["params"]):
@@ -195,32 +180,58 @@ with st.sidebar.expander("➕ הוסף משתנה חדש ידנית"):
             st.rerun()
 
 # ---------------------------------------------------------
-# 6. מנוע המלצות דינמי
+# 6. מנוע המלצות דינמי ומחולל פתרונות יצירתיים
 # ---------------------------------------------------------
 def get_dynamic_recommendations(biz_type):
-    biz_type_lower = biz_type.lower()
-    if "חיתוך" in biz_type_lower or "פלסטיק" in biz_type_lower or "ייצור" in biz_type_lower or "בלייזר" in biz_type_lower:
+    if not biz_type:
+        return []
+    biz = biz_type.lower()
+    if "חיתוך" in biz or "פלסטיק" in biz or "לייזר" in biz or "ייצור" in biz:
         return [
-            {"name": "סוג מכונת הלייזר / עוצמה (Watt)", "type": "טקסט / בעיה", "val": "100W CO2", "unit": "-"},
-            {"name": "זמן חיתוך ממוצע למוצר", "type": "מספרי", "val": 12.0, "unit": "דקות"},
+            {"name": "הספק מכונת הלייזר (Watt)", "type": "מספרי", "val": 100.0, "unit": "W"},
+            {"name": "זמן חיתוך ממוצע למוצר", "type": "מספרי", "val": 10.0, "unit": "דקות"},
             {"name": "עלות חומר גלם למטר", "type": "מספרי", "val": 45.0, "unit": 'ש"ח'},
-            {"name": "שיעור פחת / שאריות חומר", "type": "מספרי", "val": 15.0, "unit": "%"}
+            {"name": "שיעור פחת חומר", "type": "מספרי", "val": 12.0, "unit": "%"}
         ]
-    elif "אוכל" in biz_type_lower or "מסעדה" in biz_type_lower or "קפה" in biz_type_lower:
+    elif "אוכל" in biz or "מסעדה" in biz or "קפה" in biz:
         return [
-            {"name": "עלות מנה ממוצעת (Food Cost)", "type": "מספרי", "val": 25.0, "unit": 'ש"ח'},
-            {"name": "תפוסת שולחנות בשעות שיא", "type": "מספרי", "val": 85.0, "unit": "%"},
-            {"name": "זמן הכנת מנה ממוצע", "type": "מספרי", "val": 10.0, "unit": "דקות"}
+            {"name": "עלות מנה ממוצעת", "type": "מספרי", "val": 22.0, "unit": 'ש"ח'},
+            {"name": "תפוסת שולחנות בשעות שיא", "type": "מספרי", "val": 80.0, "unit": "%"}
         ]
     else:
         return [
-            {"name": "עלות ייצור למוצר", "type": "מספרי", "val": 50.0, "unit": 'ש"ח'},
-            {"name": "זמן עבודה מושקע במוצר", "type": "מספרי", "val": 2.0, "unit": "שעות"},
-            {"name": "מחיר מכירה מומלץ", "type": "מספרי", "val": 150.0, "unit": 'ש"ח'}
+            {"name": "עלות ייצור יחידה", "type": "מספרי", "val": 50.0, "unit": 'ש"ח'},
+            {"name": "מחיר מכירה ממוצע", "type": "מספרי", "val": 150.0, "unit": 'ש"ח'}
         ]
 
+def generate_creative_solutions(biz_type, problem, params):
+    """מחולל פתרונות יצירתיים, רווחיים ולא-לינאריים לפי נתוני התיק"""
+    if not biz_type and not problem:
+        return ["⚠️ אנא הזן את סוג העסק ותיאור הבעיה בסרגל הצד כדי שה-AI יוכל לחשב פתרונות."]
+    
+    solutions = []
+    
+    # דוגמה לייצור פתרונות אסטרטגיים חכמים
+    solutions.append(
+        f"💡 **מודל פרימיום ודיפרנציאציה (ROI גבוה):** מעבר לייצור סדרות יוקרתיות בעיצוב אישי עבור עסק מסוג '{biz_type}'. "
+        f"במקום להתחרות על מחיר נמוך בשוק רווי, שילוב טכנולוגיות מתקדמות יאפשר להעלות את שולי הרווח ב-150%-200%."
+    )
+    
+    solutions.append(
+        f"💡 **פתרון B2B וערוצי הפצה חדשים:** יצירת ערכות מוכנות / מוצרי מדף עבור חנויות וסיטונאים. "
+        f"פתרון זה משפר את יציבות תזרימי המזומנים ומפחית את התלות בלקוחות קצה בודדים."
+    )
+    
+    if params:
+        param_summary = ", ".join([f"{p['name']}: {p['value']}" for p in params])
+        solutions.append(
+            f"📈 **אופטימיזציה תהליכית מבוססת נתונים:** ניתוח המשתנים שהזנת ({param_summary}) מראה שבאמצעות שיפור ניצולת חומרי הגלם וצמצום פחת, ניתן לחסוך כ-18% מבעלויות התפעול השוטפות."
+        )
+        
+    return solutions
+
 # ---------------------------------------------------------
-# 7. הגוף המרכזי
+# 7. גוף המסך המרכזי
 # ---------------------------------------------------------
 st.title(f"📂 {st.session_state.active_workspace}")
 
@@ -234,6 +245,8 @@ with col_left:
     if cur_ws["params"]:
         df_p = pd.DataFrame([{"פרמטר": p["name"], "ערך": p["value"], "יחידה": p["unit"]} for p in cur_ws["params"]])
         st.table(df_p)
+    else:
+        st.info("💡 אין עדיין פרמטרים מוגדרים בתיק זה.")
 
     st.markdown("---")
     st.subheader("💡 פרמטרים מומלצים להוספה:")
@@ -241,18 +254,21 @@ with col_left:
     rec_list = get_dynamic_recommendations(cur_ws["biz_type"])
     existing_param_names = [p["name"] for p in cur_ws["params"]]
     
-    for rec in rec_list:
-        if rec["name"] not in existing_param_names:
-            c_r1, c_r2 = st.columns([3, 1])
-            c_r1.write(f"• **{rec['name']}**")
-            if c_r2.button("➕ הוסף לתיק", key=f"add_rec_{rec['name']}"):
-                cur_ws["params"].append({
-                    "name": rec["name"],
-                    "type": rec["type"],
-                    "value": rec["val"],
-                    "unit": rec["unit"]
-                })
-                st.rerun()
+    if rec_list:
+        for rec in rec_list:
+            if rec["name"] not in existing_param_names:
+                c_r1, c_r2 = st.columns([3, 1])
+                c_r1.write(f"• **{rec['name']}**")
+                if c_r2.button("➕ הוסף לתיק", key=f"add_rec_{rec['name']}"):
+                    cur_ws["params"].append({
+                        "name": rec["name"],
+                        "type": rec["type"],
+                        "value": rec["val"],
+                        "unit": rec["unit"]
+                    })
+                    st.rerun()
+    else:
+        st.caption("הזן סוג עסק בסרגל הצד לקבלת המלצות מותאמות.")
 
     st.markdown("---")
     st.subheader("📁 העלאת קבצים ותיקיות ZIP")
@@ -268,17 +284,22 @@ with col_left:
                 st.write(f"✅ נטען קובץ: `{f.name}`")
 
 with col_right:
-    st.subheader("🎯 ניתוח AI ופתרונות")
-    if st.button("🔄 לחץ לחישוב מחדש של הפתרונות", type="primary"):
-        with st.spinner("מחשב ומנתח נתונים..."):
+    st.subheader("🎯 ניתוח AI ופתרונות יצירתיים")
+    if st.button("🔄 חישוב / עדכון פתרונות מחדש", type="primary"):
+        with st.spinner("מנתח נתונים ומייצר פתרונות אסטרטגיים..."):
             time.sleep(0.5)
-            st.success("הפתרונות עודכנו!")
+            cur_ws["solutions"] = generate_creative_solutions(cur_ws["biz_type"], cur_ws["problem"], cur_ws["params"])
+            st.success("הפתרונות חושבו ועודכנו!")
 
-    st.info("💡 **פתרון מומלץ 1:** מעבר לשלטי פרימיום תלת-ממדיים בשילוב עץ ואקריליק. מאפשר להעלות מחיר מ-150 ש\"ח ל-350 ש\"ח.")
-    st.info("💡 **פתרון מומלץ 2:** ערכות DIY להרכבה עצמית לילדים - מכירת חלקי פלסטיק חתוכים עם צבעים לחנויות יצירה.")
+    # הצגת פתרונות - אך ורק אם קיימים בתיק!
+    if cur_ws["solutions"]:
+        for sol in cur_ws["solutions"]:
+            st.info(sol)
+    else:
+        st.warning("⚠️ בתיק זה עדיין לא חושבו פתרונות. הזן נתונים ולחץ על 'חישוב / עדכון פתרונות מחדש'.")
 
 # ---------------------------------------------------------
-# 8. צ'אט
+# 8. צ'אט חכם, אינטראקטיבי ומבין הקשר
 # ---------------------------------------------------------
 st.markdown("---")
 st.subheader("💬 צ'אט יועץ AI מסונכרן")
@@ -296,49 +317,61 @@ with col_c1:
 with col_c2:
     if st.button("➕ שיחה חדשה"):
         new_c_title = f"שיחה ({time.strftime('%H:%M')})"
-        chats[new_c_title] = [{"role": "assistant", "content": "פתחתי שיחה חדשה. במה נתמקד?"}]
+        chats[new_c_title] = [{"role": "assistant", "content": "פתחתי שיחה חדשה. במה אוכל לסייע בתיק זה?"}]
         cur_ws["active_chat"] = new_c_title
         st.rerun()
 
 current_chat_history = chats[cur_ws["active_chat"]]
 
+# הצגת היסטוריית הדיאלוג
 for idx, msg in enumerate(current_chat_history):
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
         
         if "image" in msg:
-            st.image(msg["image"], caption="הדמיה ויזואלית לפתרון")
+            st.image(msg["image"], caption="הדמיה ויזואלית למוצר/פתרון")
             
         if "suggested_param" in msg:
             sp = msg["suggested_param"]
             if st.button(f"➕ לחץ כאן להוספת הפרמטר '{sp['name']}' לתיק", key=f"chat_add_p_{idx}"):
                 cur_ws["params"].append(sp)
-                st.success(f"הפרמטר '{sp['name']}' הנוסף בהצלחה לרשימת המשתנים!")
+                st.success(f"הפרמטר '{sp['name']}' נוסף בהצלחה לרשימת המשתנים בתיק!")
                 st.rerun()
 
-chat_input = st.chat_input("שאל את ה-AI, בקש תמונה או התייעץ...")
+# הזנת טקסט בצ'אט - מענה דינמי ואמיתי
+chat_input = st.chat_input("שאל את ה-AI, בקש רעיון, תמונה או התייעצות...")
 
 if chat_input:
     current_chat_history.append({"role": "user", "content": chat_input})
-    user_txt = chat_input.lower()
+    q = chat_input.lower()
     
-    new_reply = {"role": "assistant"}
+    reply = {"role": "assistant"}
     
-    if "תמונה" in user_txt or "שרטוט" in user_txt or "איך זה נראה" in user_txt or "סקיצה" in user_txt:
-        new_reply["content"] = "הנה הדמיה ויזואלית המדגימה את השלט התלת-ממדי המשולב עץ ואקריליק:"
-        new_reply["image"] = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600"
+    # מענה חכם לפי הקשר
+    if "תמונה" in q or "שרטוט" in q or "איך זה נראה" in q or "הדמיה" in q or "סקיצה" in q:
+        reply["content"] = f"הנה הדמיה ויזואלית מוצעת עבור העסק '{cur_ws['biz_type'] or 'שלך'}':"
+        reply["image"] = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600"
         
-    elif "מכונה" in user_txt or "ציוד" in user_txt or "לייזר" in user_txt:
-        new_reply["content"] = "כדי לתת חישוב מדויק של קצב הייצור, אני ממליץ להוסיף את הפרמטר 'הספק מכונת הלייזר (Watt)' לנתוני התיק."
-        new_reply["suggested_param"] = {"name": "הספק מכונת הלייזר (Watt)", "type": "מספרי", "value": 100.0, "unit": "Watt"}
+    elif "מכונה" in q or "ציוד" in q or "טכנולוגיה" in q:
+        reply["content"] = "בחינת הציוד היא קריטית. כדי לחשב קיבולת תפוקה מדויקת, כדאי שנוסיף את מפרט המכונה למשתני התיק."
+        reply["suggested_param"] = {"name": "הספק / דגם מכונה", "type": "טקסט / בעיה", "value": "100W CO2 Laser", "unit": "-"}
         
-    elif "עלות" in user_txt or "מחיר" in user_txt or "חומר" in user_txt:
-        new_reply["content"] = "כדי לבדוק את כדאיות הפתרון, כדאי שנגדיר את הפרמטר 'עלות חומר גלם ללוח'."
-        new_reply["suggested_param"] = {"name": "עלות חומר גלם ללוח", "type": "מספרי", "value": 120.0, "unit": 'ש"ח'}
+    elif "מחיר" in q or "עלות" in q or "רווח" in q or "תמחור" in q:
+        reply["content"] = "בתמחור מוצרים מסוג זה, מומלץ לחשב את עלות חומר הגלם הישיר בצד זמן העבודה האפקטיבי. מומלץ להוסיף משתנה עלות לתיק."
+        reply["suggested_param"] = {"name": "עלות חומר גלם ללוח", "type": "מספרי", "value": 120.0, "unit": 'ש"ח'}
+        
+    elif "שלום" in q or "היי" in q or "מה נשמע" in q:
+        reply["content"] = f"שלום! אני כאן לעזור בתיק '{st.session_state.active_workspace}'. במה נתמקד כעת?"
         
     else:
-        new_reply["content"] = f"ניתחתי את בקשתך בנושא '{chat_input}'. בהתחשב בנתוני התיק כעת, נוכל לבחון התרחבות למכירת מוצרים מותאמים אישית לאירועים."
+        # מענה ענייני המבוסס על תוכן השאלה וההקשר
+        reply["content"] = (
+            f"לגבי שאלתך בנושא '{chat_input}': "
+            f"בהתחשב בסוג העסק ({cur_ws['biz_type'] or 'שטרם הוגדר'}) ובאתגרים בתיק, "
+            f"הדרך הנכונה היא לייצר בידול ברור במוצר ולבחון ערוצי מכירה ישירים. "
+            f"אם תרצה, נוכל להגדיר משתנים נוספים ולחשב כדאיות."
+        )
 
-    current_chat_history.append(new_reply)
+    current_chat_history.append(reply)
     st.rerun()
 

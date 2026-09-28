@@ -52,7 +52,6 @@ if not st.session_state.authenticated:
     col_a, col_b, col_c = st.columns([1, 2, 1])
     
     with col_b:
-        # שימוש ב-st.form מאפשר לדפדפן להשלים שם משתמש וסיסמה יחד
         with st.form(key="login_form"):
             username = st.text_input("שם משתמש / אימייל:", key="login_username")
             password = st.text_input("סיסמה:", type="password", key="login_password")
@@ -63,7 +62,6 @@ if not st.session_state.authenticated:
                     st.session_state.authenticated = True
                     st.session_state.current_user = username
                     
-                    # פתיחת תיק ריק ראשוני למשתמש חדש אם הוא לא קיים במערכת
                     if username not in st.session_state.users_data:
                         st.session_state.users_data[username] = {
                             "תיק חדש 1": {
@@ -83,9 +81,24 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 4. עיצוב ושפה
+# 4. עיצוב, שפה והגנת KeyError
 # ---------------------------------------------------------
 user_id = st.session_state.current_user
+
+# בדיקת הגנה למניעת KeyError
+if user_id not in st.session_state.users_data:
+    st.session_state.users_data[user_id] = {
+        "תיק חדש 1": {
+            "biz_type": "",
+            "problem": "",
+            "params": [],
+            "chats": {
+                "שיחה חדשה": [{"role": "assistant", "content": f"שלום {user_id}! זהו התיק החדש שלך."}]
+            },
+            "active_chat": "שיחה חדשה"
+        }
+    }
+
 user_workspaces = st.session_state.users_data[user_id]
 
 is_rtl = st.session_state.lang in ["עברית", "العربية"]
@@ -100,7 +113,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 5. סרגל צד (Sidebar) - אזור אישי של המשתמש בלבד
+# 5. סרגל צד (Sidebar)
 # ---------------------------------------------------------
 st.sidebar.title("OptiFlow AI ⚡")
 st.sidebar.markdown(f"👤 מחובר כ: **{user_id}**")
@@ -182,7 +195,7 @@ with st.sidebar.expander("➕ הוסף משתנה חדש ידנית"):
             st.rerun()
 
 # ---------------------------------------------------------
-# 6. מנוע המלצות דינמי לפי סוג העסק (סעיף 3)
+# 6. מנוע המלצות דינמי
 # ---------------------------------------------------------
 def get_dynamic_recommendations(biz_type):
     biz_type_lower = biz_type.lower()
@@ -222,9 +235,8 @@ with col_left:
         df_p = pd.DataFrame([{"פרמטר": p["name"], "ערך": p["value"], "יחידה": p["unit"]} for p in cur_ws["params"]])
         st.table(df_p)
 
-    # פרמטרים מומלצים דינמיים לפי סוג העסק
     st.markdown("---")
-    st.subheader("💡 פרמטרים מומלצים להוספה (משתנה לפי סוג העסק):")
+    st.subheader("💡 פרמטרים מומלצים להוספה:")
     
     rec_list = get_dynamic_recommendations(cur_ws["biz_type"])
     existing_param_names = [p["name"] for p in cur_ws["params"]]
@@ -266,7 +278,7 @@ with col_right:
     st.info("💡 **פתרון מומלץ 2:** ערכות DIY להרכבה עצמית לילדים - מכירת חלקי פלסטיק חתוכים עם צבעים לחנויות יצירה.")
 
 # ---------------------------------------------------------
-# 8. צ'אט חכם, אינטראקטיבי ומסונכרן (סעיף 4)
+# 8. צ'אט
 # ---------------------------------------------------------
 st.markdown("---")
 st.subheader("💬 צ'אט יועץ AI מסונכרן")
@@ -290,16 +302,13 @@ with col_c2:
 
 current_chat_history = chats[cur_ws["active_chat"]]
 
-# הצגת כל הודעות הצ'אט
 for idx, msg in enumerate(current_chat_history):
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
         
-        # אם יש תמונה שה-AI החליט להציג
         if "image" in msg:
             st.image(msg["image"], caption="הדמיה ויזואלית לפתרון")
             
-        # אם ה-AI הציע להוסיף פרמטר בלחיצת כפתור
         if "suggested_param" in msg:
             sp = msg["suggested_param"]
             if st.button(f"➕ לחץ כאן להוספת הפרמטר '{sp['name']}' לתיק", key=f"chat_add_p_{idx}"):
@@ -311,16 +320,12 @@ chat_input = st.chat_input("שאל את ה-AI, בקש תמונה או התייע
 
 if chat_input:
     current_chat_history.append({"role": "user", "content": chat_input})
-    
-    # ניתוח בקשת המשתמש
     user_txt = chat_input.lower()
     
-    new_reply = {}
-    new_reply["role"] = "assistant"
+    new_reply = {"role": "assistant"}
     
     if "תמונה" in user_txt or "שרטוט" in user_txt or "איך זה נראה" in user_txt or "סקיצה" in user_txt:
         new_reply["content"] = "הנה הדמיה ויזואלית המדגימה את השלט התלת-ממדי המשולב עץ ואקריליק:"
-        # תמונת הדגמה של לייזר/עץ
         new_reply["image"] = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600"
         
     elif "מכונה" in user_txt or "ציוד" in user_txt or "לייזר" in user_txt:
@@ -332,7 +337,7 @@ if chat_input:
         new_reply["suggested_param"] = {"name": "עלות חומר גלם ללוח", "type": "מספרי", "value": 120.0, "unit": 'ש"ח'}
         
     else:
-        new_reply["content"] = f"ניתחתי את בקשתך בנושא '{chat_input}'. בהתחשב בנתוני התיק כעת, נוכל לבחון התרחבות למכירת מוצרים מותאמים אישית לאירועים. תרצה שנבדוק פרמטרים של תמחור סיטונאי?"
+        new_reply["content"] = f"ניתחתי את בקשתך בנושא '{chat_input}'. בהתחשב בנתוני התיק כעת, נוכל לבחון התרחבות למכירת מוצרים מותאמים אישית לאירועים."
 
     current_chat_history.append(new_reply)
     st.rerun()

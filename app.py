@@ -43,7 +43,7 @@ LANGUAGES = {
         "biz_type": "מה סוג העסק?",
         "biz_default": "חנות קמעונאית / המבורגריה / מפעל",
         "problem_label": "תאר את הבעיה / צוואר הבקבוק העיקרי:",
-        "problem_default": "עומס בשעות הריבוי, חוסר מקום בשטח ההמתנה וזמני טיפול ארוכים.",
+        "problem_default": "עומס בשעות השיא, חוסר מקום בשטח ההמתנה וזמני טיפול ארוכים.",
         "params_title": "📏 ניהול פרמטרים ומשתנים",
         "add_param": "➕ הוסף פרמטר חדש",
         "param_name": "שם הפרמטר",
@@ -89,8 +89,8 @@ L = LANGUAGES[selected_lang]
 # ---------------------------------------------------------
 if 'params' not in st.session_state:
     st.session_state.params = [
-        {"name": "שטח חנות / מתחם", "value": 120.0, "unit": "מ"ר (m²)"},
-        {"name": "משקל מוצר / פריט ממוצע", "value": 2.5, "unit": "ק\"ג (kg)"},
+        {"name": "שטח חנות / מתחם", "value": 120.0, "unit": "sqm"},
+        {"name": "משקל מוצר / פריט ממוצע", "value": 2.5, "unit": "kg"},
         {"name": "זמן טיפול ללקוח", "value": 4.0, "unit": "דקות"},
         {"name": "עמדות פעילות", "value": 2.0, "unit": "יחידות"}
     ]
@@ -119,7 +119,7 @@ st.sidebar.subheader(L["params_title"])
 with st.sidebar.expander(L["add_param"]):
     new_name = st.text_input(L["param_name"])
     new_val = st.number_input(L["param_val"], value=10.0, step=1.0)
-    new_unit = st.selectbox(L["param_unit"], ["מ\"ר (m²)", "מטרים (m)", "ק\"ג (kg)", "טון", "דקות", "שעות", "₪", "$", "יחידות/עובדים", "אחר"])
+    new_unit = st.selectbox(L["param_unit"], ["sqm", "מטרים", "kg", "טון", "דקות", "שעות", "שקלים", "דולרים", "יחידות", "אחר"])
     if st.button("➕ אישור הוספה"):
         if new_name:
             st.session_state.params.append({"name": new_name, "value": new_val, "unit": new_unit})
@@ -227,7 +227,7 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("AI חושב ומחשב התאמות..."):
             time.sleep(1)
-            ai_response = f"הבנתי אותך. בנוגע ל-'{user_input}': אני ממליץ להוסיף פרמטר חדש בסרגל הצדדי (לדוגמה: 'זמן הכנה/שינוע') כדי שנוכל לדייק את הסימולציה עוד יותר. האם תרצה שאעדכן את מודל הניתוח בהתאם?"
+            ai_response = f"הבנתי אותך. בנוגע ל-'{user_input}': אני ממליץ להוסיף פרמטר חדש בסרגל הצדדי כדי שנוכל לדייק את הסימולציה עוד יותר. האם תרצה שאעדכן את מודל הניתוח בהתאם?"
             st.write(ai_response)
             st.session_state.chat_history.append({"role": "assistant", "content": ai_response})
 

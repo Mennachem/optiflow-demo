@@ -52,7 +52,7 @@ if not st.session_state.authenticated:
         username = st.text_input("שם משתמש / אימייל:")
         password = st.text_input("סיסמה:", type="password")
         if st.button("🔑 התחבר לאזור האישי"):
-            if username and password: # כניסה הדגמתית
+            if username and password:
                 st.session_state.authenticated = True
                 st.session_state.user_name = username
                 st.success("התחברת בהצלחה!")
@@ -137,7 +137,7 @@ with st.sidebar.expander("➕ הוסף פרמטר / נתון למדד"):
     
     if p_type == "מספרי":
         p_val = st.number_input("ערך:", value=1.0)
-        p_unit = st.text_input("יחידת מידה חופשית (כגון: ש"ח, יחידות, %, שעות, יחידה לשעה):", value="ש"ח")
+        p_unit = st.text_input('יחידת מידה חופשית (כגון: ש"ח, יחידות, %, שעות, יחידה לשעה):', value='ש"ח')
     else:
         p_val = st.text_input("תיאור / ערך טקסטואלי:")
         p_unit = "-"
@@ -147,7 +147,7 @@ with st.sidebar.expander("➕ הוסף פרמטר / נתון למדד"):
             cur_ws["params"].append({"name": p_name, "type": p_type, "value": p_val, "unit": p_unit})
             st.rerun()
 
-# עריכה/מחיקה של פרמטרים קימים
+# עריכה/מחיקה של פרמטרים קיימים
 to_del = None
 for i, p in enumerate(cur_ws["params"]):
     c1, c2 = st.sidebar.columns([3, 1])
@@ -169,10 +169,8 @@ if to_del is not None:
 # 6. מנוע בינה מלאכותית יצירתי + הצעת פרמטרים חסרים
 # ---------------------------------------------------------
 def generate_ai_solutions(biz, prob, params):
-    # ניתוח חכם של הנתונים והפקת רעיונות יצירתיים
     param_str = ", ".join([f"{p['name']}: {p['value']} {p['unit']}" for p in params])
     
-    # 1. הצעת פרמטרים מומלצים נוספים (סעיף 7)
     recommended_params = []
     if "חיתוך" in biz or "פלסטיק" in biz or "ייצור" in biz:
         recommended_params = ["סוג מכונת הלייזר / עוצמה (Watt)", "זמן חיתוך ממוצע למוצר", "עלות חומר גלם למטר", "שיעור פחת / שאריות חומר"]
@@ -181,7 +179,6 @@ def generate_ai_solutions(biz, prob, params):
     else:
         recommended_params = ["עלות רכישת לקוח (CAC)", "ערך חיי לקוח (LTV)", "זמן עבודה מושקע במוצר", "שיעור המרה בחנות/אתר"]
 
-    # 2. פתרונות יצירתיים מותאמים (סעיף 4)
     solutions = []
     if "שלטים" in prob or "חיתוך" in biz:
         solutions.append({
@@ -224,7 +221,6 @@ with col_left:
         df_p = pd.DataFrame([{"פרמטר": p["name"], "ערך": p["value"], "יחידה": p["unit"]} for p in cur_ws["params"]])
         st.table(df_p)
 
-    # סעיף 7: הצעת פרמטרים מומלצים להרחבת הניתוח
     rec_params, ai_sols = generate_ai_solutions(cur_ws["biz_type"], cur_ws["problem"], cur_ws["params"])
     
     st.markdown("---")
@@ -237,7 +233,6 @@ with col_left:
             cur_ws["params"].append({"name": rp, "type": "מספרי", "value": 0.0, "unit": "יחידות"})
             st.rerun()
 
-    # סעיף 5: העלאת קבצים מרובים ותמיכה ב-ZIP
     st.markdown("---")
     st.subheader("📁 העלאת קבצים, תמונות ותיקיות ZIP")
     uploaded_files = st.file_uploader("העלה תמונות, מסמכים או קובצי ZIP דחוסים:", accept_multiple_files=True, type=["png", "jpg", "jpeg", "pdf", "zip", "csv", "xlsx"])
@@ -253,7 +248,6 @@ with col_left:
                 st.write(f"✅ נטען קובץ: `{f.name}`")
 
 with col_right:
-    # סעיף 1: כפתור חישוב מחדש
     st.subheader("🎯 ניתוח AI, סימולציה ופתרונות יצירתיים")
     if st.button("🔄 לחץ לחישוב מחדש של הפתרונות", type="primary"):
         with st.spinner("מחשב ומנתח נתונים מחדש..."):
@@ -267,7 +261,7 @@ with col_right:
             st.info(sol['sim'])
 
 # ---------------------------------------------------------
-# 8. צ'אט חכם מסונכרן (סעיף 6)
+# 8. צ'אט חכם מסונכרן
 # ---------------------------------------------------------
 st.markdown("---")
 st.subheader("💬 צ'אט יועץ AI מסונכרן")
@@ -301,7 +295,6 @@ with col_c3:
         else:
             st.warning("חייבת להישאר לפחות שיחה אחת.")
 
-# הצגת השיחה
 current_chat_history = chats[cur_ws["active_chat"]]
 
 for msg in current_chat_history:
@@ -318,12 +311,11 @@ if chat_input:
         with st.spinner("AI מנתח את התיק והפתרונות..."):
             time.sleep(0.8)
             
-            # תשובה חכמה המבוססת על הקונטקסט של העסק והפתרונות
             reply = ""
             if "פתרון" in chat_input or "רעיון" in chat_input or "עוד" in chat_input:
                 reply = f"בהתבסס על הבעיה בתיק ({cur_ws['problem']}), הנה פתרון חלופי נוסף: יצירת סדרת שלטי תאורה קטנים לשולחנות עבודה/חדרי שינה. זה חוסך בחומר גלם ומעלה את הרווחיות."
             elif "לא מרוצה" in chat_input or "לא מתאים" in chat_input:
-                reply = "מבין אותך לחלוטין. בוא נשנה גישה: במקום למכור לפרטיים או חנויות, נוכל לפנות ישירות לערייות, מתנ"סים ומארגני אירועים להזמנות מוסדיות גדולות. האם תרצה שנגדיר פרמטרים לעלויות סיטונאיות?"
+                reply = "מבין אותך לחלוטין. בוא נשנה גישה: במקום למכור לפרטיים או חנויות, נוכל לפנות ישירות לערייות, מתנ\"סים ומארגני אירועים להזמנות מוסדיות גדולות. האם תרצה שנגדיר פרמטרים לעלויות סיטונאיות?"
             else:
                 reply = f"קיבלתי את דבריך לגבי '{chat_input}'. העברתי זאת לניתוח התיק. האם תרצה שנוסיף פרמטר חדש בסרגל הצד כדי לעדכן את חישוב הרווחיות?"
             

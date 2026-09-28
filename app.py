@@ -1,108 +1,101 @@
-
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import time
 
-# הגדרת תצורת העמוד
-st.set_page_config(
-    page_title="OptiFlow AI - אופטימיזציה חכמה לעסקים",
-    page_icon="⚡",
-    layout="wide"
-)
+# הגדרת תצוגת העמוד
+st.set_page_config(page_title="OptiFlow AI - פתרון בעיות עסקיות", layout="wide")
 
-# עיצוב מותאם לעברית (RTL)
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Rubik', sans-serif;
-        direction: rtl;
-        text-align: right;
-    }
-    .main-title {
-        color: #1E3A8A;
-        font-weight: 700;
-        font-size: 2.5rem;
-        margin-bottom: 0px;
-    }
-    .sub-title {
-        color: #4B5563;
-        font-size: 1.2rem;
-        margin-bottom: 30px;
-    }
-    .stMetric {
-        background-color: #F3F4F6;
-        padding: 15px;
-        border-radius: 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
+st.title("OptiFlow AI ⚡")
+st.caption("מערכת חכמה לניתוח צווארי בקבוק, סימולציה ואופטימיזציה מותאמת אישית לכל עסק")
 
-# כותרת האתר
-st.markdown('<div class="main-title">⚡ OptiFlow AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">מערכת בינה מלאכותית לניתוח עומסים, סימולציה ומציאת פתרונות אופטימליים</div>', unsafe_allow_html=True)
+# סרגל צד - הגדרת העסק והבעיה
+st.sidebar.header("🎯 הגדרת העסק והבעיה")
 
-st.divider()
+business_type = st.sidebar.text_input("מה סוג העסק?", value="מסעדת מהיר-לכת (פילוט)")
+problem_description = st.sidebar.text_area("תאר את הבעיה / צוואר הבקבוק העיקרי:", 
+                                          value="תורים ארוכים בקופה בשעות העומס ועיכוב ביציאת המנות.")
 
-# סרגל צד לנתוני קלט
-st.sidebar.header("⚙️ הגדרת הפרמטרים של העסק")
+st.sidebar.markdown("---")
+st.sidebar.subheader("📊 משתנים ופרמטרים של העסק")
 
-business_type = st.sidebar.selectbox(
-    "בחר את סוג המערכת לניתוח:",
-    ["עמדות שירות / קבלת קהל", "קו אריזה / ייצור במפעל", "ניהול תורים ומכירות"]
-)
+# ניהול פרמטרים דינמיים
+if 'params' not in st.session_state:
+    st.session_state.params = [
+        {"name": "זמן טיפול ממוצע ללקוח (דקות)", "value": 4.0},
+        {"name": "מספר עמדות / עובדים פעילים", "value": 2.0},
+        {"name": "קצב הגעת לקוחות בשעה", "value": 35.0}
+    ]
 
-stations_count = st.sidebar.slider("מספר עמדות פעילות כיום:", 1, 10, 3)
-arrival_rate = st.sidebar.slider("קצב הגעת לקוחות/פריטים (בשעה):", 10, 200, 60)
-avg_service_time = st.sidebar.slider("זמן טיפול ממוצע לכל פריט/לקוח (בדקות):", 1, 30, 4)
+# הוספת פרמטר חדש
+with st.sidebar.expander("➕ הוסף פרמטר חדש"):
+    new_param_name = st.text_input("שם הפרמטר (למשל: שטח המתן במטרים)")
+    new_param_val = st.number_input("ערך", value=1.0, step=0.5)
+    if st.button("הוסף משתנה"):
+        if new_param_name:
+            st.session_state.params.append({"name": new_param_name, "value": new_param_val})
+            st.rerun()
 
-# כפתור הפעלה
-if st.sidebar.button("🚀 הרץ סימולציית AI והפק פתרונות", type="primary"):
+# הצגת ועריכת הפרמטרים הקיימים
+updated_params = {}
+for i, param in enumerate(st.session_state.params):
+    updated_params[param["name"]] = st.sidebar.number_input(
+        f"{param['name']}:", 
+        value=float(param["value"]), 
+        key=f"p_{i}"
+    )
+
+# תוכן מרכזי
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.subheader("📋 נתוני הקלט של העסק")
+    st.write(f"**סוג העסק:** {business_type}")
+    st.write(f"**תיאור הבעיה:** {problem_description}")
     
-    with st.spinner("המערכת מריצה 5,000 תרחישי סימולציה ומחשבת חוקיות..."):
-        time.sleep(2) # סימולציית זמן חישוב
-        
-    st.success("הסימולציה הושלמה בהצלחה!")
-    
-    # חישובים לוגיים של עומס (מנוע האופטימיזציה)
-    capacity_per_hour = (60 / avg_service_time) * stations_count
-    load_factor = min(round((arrival_rate / capacity_per_hour) * 100, 1), 100.0)
-    avg_wait = max(0, round((arrival_rate / max(1, capacity_per_hour - arrival_rate)) * (avg_service_time / 2), 1))
-    
-    # הצגת מדדים מרכזיים
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("ניצולת המערכת הנוכחית", f"{load_factor}%", delta=f"{'עומס יתר' if load_factor > 85 else 'תקין'}", delta_color="inverse")
-    with col2:
-        st.metric("זמן ממתין ממוצע בתור", f"{avg_wait} דקות")
-    with col3:
-        st.metric("קיבולת מקסימלית בשעה", f"{int(capacity_per_hour)} יחידות")
+    st.markdown("##### פרמטרים שנבדקים:")
+    df_params = pd.DataFrame(list(updated_params.items()), columns=["פרמטר", "ערך"])
+    st.table(df_params)
 
-    st.divider()
+with col2:
+    st.subheader("💡 ניתוח AI והמלצות לפתרון")
+    if st.button("🔍 נתח מחדש וחפש פתרון אופטימלי"):
+        with st.spinner("מנתח את הנתונים ומחשב מסלולי שיפור..."):
+            time.sleep(1)
+            st.success("הניתוח הושלם בהצלחה!")
+            
+    st.info(f"**אבחון עבור {business_type}:**\n"
+            f"על פי הבעיה שהוגדרה ('{problem_description}'), מפתח העומס הנוכחי מושפע מהיחס בין קצב ההגעה לקיבולת הטיפול.")
     
-    # תוצאות ופתרונות שה-AI מציע
-    st.subheader("💡 פתרונות AI מומלצים להורדת העומס")
-    
-    if load_factor > 80:
-        st.error("⚠️ זיהוי צוואר בקבוק: המערכת פועלת על סף קריסה.")
-        col_sol1, col_sol2 = st.columns(2)
-        with col_sol1:
-            st.info("🔹 **המלצה מבנית:** הוספת עמדה נוספת בשעות השיא תוריד את זמני ההמתנה ב-**68%**.")
-            st.info("🔹 **המלצת תהליך:** פיצול שלבי השירות מוריד את זמן הטיפול לכל לקוח מ-{} דקות ל-{} דקות.".format(avg_service_time, max(1, avg_service_time - 2)))
-        with col_sol2:
-            st.markdown("**גרף תחזית עומסים (לפני ואחרי הפתרון):**")
-            chart_data = pd.DataFrame({
-                "שעה ביום": [f"{h}:00" for h in range(8, 17)],
-                "עומס נוכחי (%)": np.clip(np.random.normal(load_factor, 5, 9), 0, 100),
-                "עומס צפוי לאחר הפתרון (%)": np.clip(np.random.normal(load_factor * 0.55, 4, 9), 0, 100)
-            })
-            st.line_chart(chart_data.set_index("שעה ביום"))
-    else:
-        st.success("✅ המערכת מאוזנת! ה-AI מציע אופטימיזציה להתייעלות נוספת:")
-        st.info("🔹 ניתן לצמצם עמדה אחת בשעות השקט ולהפחית עלויות תפעול ב-20% ללא פגיעה בזמני ההמתנה.")
+    st.markdown("#### 🎯 פתרונות מומלצים:")
+    st.write("1. **אופטימיזציה מבנית:** הסטת קבלת ההזמנות לעמדה דיגיטלית/שירות עצמי.")
+    st.write("2. **וויסות עומסים:** הגדרת מסלול מהיר ללקוחות עם הזמנות קטנות.")
 
-else:
-    st.info("👈 שנה את הפרמטרים בסרגל הצדדי ולחץ על **'הרץ סימולציית AI'** כדי לראות את המערכת בפעולה.")
+st.markdown("---")
+
+# חלק הסימולציה
+st.subheader("🧪 סימולציה להרצת הפתרון ויזואלית")
+st.caption("כאן תוכל לבחון את היתכנות הפתרון ולראות כיצד שינוי הנתונים משפיע על התוצאה בפועל.")
+
+sim_col1, sim_col2 = st.columns([1, 2])
+
+with sim_col1:
+    st.markdown("##### הגדרות תרחיש סימולציה")
+    efficiency_boost = st.slider("שיפור יעילות מצופה בעקבות הפתרון (%)", 0, 50, 20)
+    sim_hours = st.slider("משך הניטור בסימולציה (שעות)", 1, 12, 8)
+
+with sim_col2:
+    # יצירת נתוני סימולציה לפי הנתונים שהלקוח הכניס
+    hours = [f"שעה {i+1}" for i in range(sim_hours)]
+    base_load = np.random.randint(20, 50, size=sim_hours) + updated_params.get("קצב הגעת לקוחות בשעה", 30)
+    optimized_load = base_load * (1 - (efficiency_boost / 100))
+    
+    chart_data = pd.DataFrame({
+        "עומס נוכחי (ללא פתרון)": base_load,
+        "עומס חיזוי (לאחר פתרון ה-AI)": optimized_load
+    }, index=hours)
+    
+    st.line_chart(chart_data)
+
+st.success("✅ תוכל להוסיף ולשנות פרמטרים בסרגל הצדדי בכל עת – הסימולציה והתוצאות יתעדכנו מול עיניך!")
 

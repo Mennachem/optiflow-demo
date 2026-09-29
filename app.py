@@ -6,7 +6,13 @@ import zipfile
 import io
 import json
 import os
-import google.generativeai as genai
+
+# ניסיון ייבוא בטוח של ספריית Gemini
+try:
+    import google.generativeai as genai
+    HAS_GEMINI = True
+except ImportError:
+    HAS_GEMINI = False
 
 # ---------------------------------------------------------
 # 1. הגדרות תצוגה
@@ -49,9 +55,7 @@ if 'lang' not in st.session_state:
 if 'users_data' not in st.session_state:
     st.session_state.users_data = load_all_data()
 
-# ---------------------------------------------------------
-# פונקציית עזר להבטחת המבנה התקין של תיק (מניעת KeyError)
-# ---------------------------------------------------------
+# פונקציית עזר להבטחת המבנה התקין של תיק
 def ensure_workspace_structure(ws):
     if "biz_type" not in ws: ws["biz_type"] = ""
     if "problem" not in ws: ws["problem"] = ""
@@ -102,7 +106,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 5. עיצוב והגנת הנתונים למשתמש מחובר
+# 5. ניהול נתוני משתמש מחובר
 # ---------------------------------------------------------
 user_id = st.session_state.current_user
 
@@ -212,7 +216,6 @@ for i, p in enumerate(cur_ws["params"]):
         if st.button("🗑️", key=f"del_{i}"):
             to_del = i
 
-    # חלון עריכת פרמטר מורחב (שם, יחידה, סוג)
     if st.session_state.get(f"editing_param_{i}", False):
         with st.sidebar.expander(f"🛠️ עריכת פרמטר: {p['name']}", expanded=True):
             p["name"] = st.text_input("שם הפרמטר החדש:", value=p["name"], key=f"edit_name_{i}")
@@ -245,7 +248,7 @@ with st.sidebar.expander("➕ הוסף משתנה חדש ידנית"):
             st.rerun()
 
 # ---------------------------------------------------------
-# 7. מנוע פתרונות AI
+# 7. מנוע פתרונות
 # ---------------------------------------------------------
 def get_dynamic_recommendations(biz_type):
     if not biz_type:
@@ -347,15 +350,18 @@ with col_right:
         st.warning("⚠️ בתיק זה עדיין לא חושבו פתרונות. הזן נתונים ולחץ על 'חישוב / עדכון פתרונות מחדש'.")
 
 # ---------------------------------------------------------
-# 9. צ'אט AI חכם (מבוסס Google Gemini)
+# 9. צ'אט AI
 # ---------------------------------------------------------
 st.markdown("---")
-st.subheader("💬 צ'אט יועץ AI חכם ומסונכרן")
+st.subheader("💬 צ'אט יועץ AI חכם ومסונכרן")
 
-# הגדרת Gemini API Key מתוך Streamlit secrets במידה וקיים
 gemini_api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
-if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
+
+if HAS_GEMINI and gemini_api_key:
+    try:
+        genai.configure(api_key=gemini_api_key)
+    except Exception:
+        pass
 
 chats = cur_ws.get("chats", {})
 active_c_name = cur_ws.get("active_chat", list(chats.keys())[0] if chats else "שיחה חדשה")
@@ -396,7 +402,6 @@ if chat_input:
     current_chat_history.append({"role": "user", "content": chat_input})
     save_all_data()
     
-    # בניית הקשר מלא (System Context) עבור ה-AI
     context_prompt = f"""
     אתה יועץ עסקי ואסטרטגי חכם המלווה את המשתמש בזמן אמת.
     נתוני התיק הנוכחי:
@@ -404,16 +409,13 @@ if chat_input:
     - סוג העסק: {cur_ws.get('biz_type', 'לא הוגדר')}
     - תיאור הבעיה: {cur_ws.get('problem', 'לא הוגדרה')}
     - משתנים ופרמטרים קיימים בתיק: {json.dumps(cur_ws.get('params', []), ensure_ascii=False)}
-    
-    ענה למשתמש בצורה מקצועית, עניינית, חכמה וטבעית בעברית, תוך התייחסות מלאה להקשר התיק ולשאלה שנשאלה.
     """
     
     ai_reply_text = ""
     
-    if gemini_api_key:
+    if HAS_GEMINI and gemini_api_key:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            # הפיכת היסטוריית הצ'אט למבנה של Gemini
             history_formatted = []
             for m in current_chat_history[:-1]:
                 role_mapped = "user" if m["role"] == "user" else "model"
@@ -423,9 +425,8 @@ if chat_input:
             response = chat_session.send_message(f"{context_prompt}\n\nשאלת המשתמש: {chat_input}")
             ai_reply_text = response.text
         except Exception as e:
-            ai_reply_text = f"קיבלתי את שאלתך: '{chat_input}'. לגבי העסק מסוג {cur_ws.get('biz_type','')} - ניתן לבחון פתרונות התייעלות תפעולית. (הערת מערכת: חיבור ה-AI נתקל בשגיאה: {e})"
+            ai_reply_text = f"קיבלתי את שאלתך: '{chat_input}'. לגבי העסק מסוג {cur_ws.get('biz_type','')} - ניתן לבחון פתרונות התייעלות. (הערת מערכת: {e})"
     else:
-        # מענה חכם ללא API KEY
         ai_reply_text = f"לגבי שאלתך '{chat_input}': בהתחשב בסוג העסק ({cur_ws.get('biz_type') or 'שטרם הוגדר'}) והבעיה שציינת ('{cur_ws.get('problem') or 'כללי'}'), מומלץ לבצע ניתוח מעמיק של התמחור וערוצי המכירה."
 
     current_chat_history.append({"role": "assistant", "content": ai_reply_text})

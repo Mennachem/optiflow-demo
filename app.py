@@ -4,6 +4,9 @@ import numpy as np
 import time
 import zipfile
 import io
+import json
+import os
+import google.generativeai as genai
 
 # ---------------------------------------------------------
 # 1. הגדרות תצוגה
@@ -11,7 +14,28 @@ import io
 st.set_page_config(page_title="OptiFlow AI - Enterprise SaaS", layout="wide")
 
 # ---------------------------------------------------------
-# 2. אתחול Session State
+# 2. מנגנון שמירת נתונים קבועה (Persistence) ב-JSON
+# ---------------------------------------------------------
+DATA_FILE = "data_store.json"
+
+def load_all_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_all_data():
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.users_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"שגיאה בשמירת הנתונים: {e}")
+
+# ---------------------------------------------------------
+# 3. אתחול Session State
 # ---------------------------------------------------------
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
@@ -23,7 +47,7 @@ if 'lang' not in st.session_state:
     st.session_state.lang = "עברית"
 
 if 'users_data' not in st.session_state:
-    st.session_state.users_data = {}
+    st.session_state.users_data = load_all_data()
 
 # ---------------------------------------------------------
 # פונקציית עזר להבטחת המבנה התקין של תיק (מניעת KeyError)
@@ -40,7 +64,7 @@ def ensure_workspace_structure(ws):
     return ws
 
 # ---------------------------------------------------------
-# 3. מסך התחברות
+# 4. מסך התחברות
 # ---------------------------------------------------------
 if not st.session_state.authenticated:
     st.markdown("<h2 style='text-align: center;'>🔒 התחברות למערכת OptiFlow AI</h2>", unsafe_allow_html=True)
@@ -70,6 +94,7 @@ if not st.session_state.authenticated:
                                 "active_chat": "שיחה חדשה"
                             }
                         }
+                        save_all_data()
                     st.success("התחברת בהצלחה!")
                     st.rerun()
                 else:
@@ -77,7 +102,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 4. עיצוב והגנת הנתונים למשתמש מחובר
+# 5. עיצוב והגנת הנתונים למשתמש מחובר
 # ---------------------------------------------------------
 user_id = st.session_state.current_user
 
@@ -94,6 +119,7 @@ if user_id not in st.session_state.users_data:
             "active_chat": "שיחה חדשה"
         }
     }
+    save_all_data()
 
 user_workspaces = st.session_state.users_data[user_id]
 
@@ -109,7 +135,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 5. סרגל צד (Sidebar)
+# 6. סרגל צד (Sidebar)
 # ---------------------------------------------------------
 st.sidebar.title("OptiFlow AI ⚡")
 st.sidebar.markdown(f"👤 מחובר כ: **{user_id}**")
@@ -147,33 +173,59 @@ with st.sidebar.expander("➕ פתח תיק חדש"):
                 "active_chat": "שיחה חדשה"
             }
             st.session_state.active_workspace = new_ws_title
+            save_all_data()
             st.rerun()
 
-# וידוא מבנה תקין לתיק הנוכחי
 cur_ws = ensure_workspace_structure(user_workspaces[st.session_state.active_workspace])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ פרמטרים ונתונים לתיק")
 
-cur_ws["biz_type"] = st.sidebar.text_input("סוג העסק:", value=cur_ws.get("biz_type", ""))
-cur_ws["problem"] = st.sidebar.text_area("תיאור הבעיה / האתגר:", value=cur_ws.get("problem", ""), height=80)
+old_biz = cur_ws.get("biz_type", "")
+old_prob = cur_ws.get("problem", "")
+
+cur_ws["biz_type"] = st.sidebar.text_input("סוג העסק:", value=old_biz)
+cur_ws["problem"] = st.sidebar.text_area("תיאור הבעיה / האתגר:", value=old_prob, height=80)
+
+if cur_ws["biz_type"] != old_biz or cur_ws["problem"] != old_prob:
+    save_all_data()
 
 st.sidebar.markdown("**רשימת המשתנים בתיק:**")
 to_del = None
 for i, p in enumerate(cur_ws["params"]):
-    c1, c2 = st.sidebar.columns([3, 1])
+    c1, c2, c3 = st.sidebar.columns([3, 1, 1])
     with c1:
         if p.get("type") == "טקסט / בעיה":
             p["value"] = st.text_input(f"{p['name']}:", value=str(p["value"]), key=f"p_t_{i}")
         else:
-            p["value"] = st.number_input(f"{p['name']} ({p['unit']}):", value=float(p["value"]), key=f"p_n_{i}")
+            try:
+                val_float = float(p["value"])
+            except ValueError:
+                val_float = 0.0
+            p["value"] = st.number_input(f"{p['name']} ({p.get('unit','')}):", value=val_float, key=f"p_n_{i}")
     with c2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("✏️", key=f"edit_{i}"):
+            st.session_state[f"editing_param_{i}"] = not st.session_state.get(f"editing_param_{i}", False)
+    with c3:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🗑️", key=f"del_{i}"):
             to_del = i
 
+    # חלון עריכת פרמטר מורחב (שם, יחידה, סוג)
+    if st.session_state.get(f"editing_param_{i}", False):
+        with st.sidebar.expander(f"🛠️ עריכת פרמטר: {p['name']}", expanded=True):
+            p["name"] = st.text_input("שם הפרמטר החדש:", value=p["name"], key=f"edit_name_{i}")
+            p["unit"] = st.text_input("יחידת מידה:", value=p.get("unit", ""), key=f"edit_unit_{i}")
+            p["type"] = st.selectbox("סוג:", ["מספרי", "טקסט / בעיה"], index=0 if p.get("type")=="מספרי" else 1, key=f"edit_type_{i}")
+            if st.button("שמור שינויים", key=f"save_p_{i}"):
+                st.session_state[f"editing_param_{i}"] = False
+                save_all_data()
+                st.rerun()
+
 if to_del is not None:
     cur_ws["params"].pop(to_del)
+    save_all_data()
     st.rerun()
 
 with st.sidebar.expander("➕ הוסף משתנה חדש ידנית"):
@@ -189,16 +241,17 @@ with st.sidebar.expander("➕ הוסף משתנה חדש ידנית"):
     if st.button("אישור הוספה"):
         if p_name:
             cur_ws["params"].append({"name": p_name, "type": p_type, "value": p_val, "unit": p_unit})
+            save_all_data()
             st.rerun()
 
 # ---------------------------------------------------------
-# 6. מנוע פתרונות
+# 7. מנוע פתרונות AI
 # ---------------------------------------------------------
 def get_dynamic_recommendations(biz_type):
     if not biz_type:
         return []
     biz = biz_type.lower()
-    if "חיתוך" in biz or "פלסטיק" in biz or "לייזר" in biz or "ייצור" in biz:
+    if "חיתוך" in biz or "פלסטיק" in biz or "לייזר" in biz or "ייצור" in biz or "דפוס" in biz:
         return [
             {"name": "הספק מכונת הלייזר (Watt)", "type": "מספרי", "val": 100.0, "unit": "W"},
             {"name": "זמן חיתוך ממוצע למוצר", "type": "מספרי", "val": 10.0, "unit": "דקות"},
@@ -222,12 +275,12 @@ def generate_creative_solutions(biz_type, problem, params):
         f"פתרון זה משפר את יציבות תזרימי המזומנים ומפחית את התלות בלקוחות קצה בודדים."
     ]
     if params:
-        param_summary = ", ".join([f"{p['name']}: {p['value']}" for p in params])
+        param_summary = ", ".join([f"{p['name']}: {p['value']} {p.get('unit','')}" for p in params])
         solutions.append(f"📈 **אופטימיזציה תהליכית:** ניתוח המשתנים שהזנת ({param_summary}) מראה שניתן לחסוך כ-18% מבעלויות התפעול.")
     return solutions
 
 # ---------------------------------------------------------
-# 7. מרכז המסך
+# 8. מרכז המסך
 # ---------------------------------------------------------
 st.title(f"📂 {st.session_state.active_workspace}")
 
@@ -239,7 +292,7 @@ with col_left:
     st.write(f"**תיאור הבעיה:** {cur_ws.get('problem') or 'לא הוגדרה'}")
     
     if cur_ws.get("params"):
-        df_p = pd.DataFrame([{"פרמטר": p["name"], "ערך": p["value"], "יחידה": p["unit"]} for p in cur_ws["params"]])
+        df_p = pd.DataFrame([{"פרמטר": p["name"], "ערך": p["value"], "יחידה": p.get("unit","")} for p in cur_ws["params"]])
         st.table(df_p)
     else:
         st.info("💡 אין עדיין פרמטרים מוגדרים בתיק זה.")
@@ -259,6 +312,7 @@ with col_left:
                     cur_ws["params"].append({
                         "name": rec["name"], "type": rec["type"], "value": rec["val"], "unit": rec["unit"]
                     })
+                    save_all_data()
                     st.rerun()
     else:
         st.caption("הזן סוג עסק בסרגל הצד לקבלת המלצות מותאמות.")
@@ -282,9 +336,9 @@ with col_right:
         with st.spinner("מנתח נתונים ומייצר פתרונות אסטרטגיים..."):
             time.sleep(0.3)
             cur_ws["solutions"] = generate_creative_solutions(cur_ws.get("biz_type"), cur_ws.get("problem"), cur_ws.get("params"))
+            save_all_data()
             st.success("הפתרונות חושבו ועודכנו!")
 
-    # גישה בטוחה למפתח solutions ללא KeyError
     solutions_list = cur_ws.get("solutions", [])
     if solutions_list:
         for sol in solutions_list:
@@ -293,10 +347,15 @@ with col_right:
         st.warning("⚠️ בתיק זה עדיין לא חושבו פתרונות. הזן נתונים ולחץ על 'חישוב / עדכון פתרונות מחדש'.")
 
 # ---------------------------------------------------------
-# 8. צ'אט
+# 9. צ'אט AI חכם (מבוסס Google Gemini)
 # ---------------------------------------------------------
 st.markdown("---")
-st.subheader("💬 צ'אט יועץ AI מסונכרן")
+st.subheader("💬 צ'אט יועץ AI חכם ומסונכרן")
+
+# הגדרת Gemini API Key מתוך Streamlit secrets במידה וקיים
+gemini_api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
 
 chats = cur_ws.get("chats", {})
 active_c_name = cur_ws.get("active_chat", list(chats.keys())[0] if chats else "שיחה חדשה")
@@ -313,6 +372,7 @@ with col_c2:
         new_c_title = f"שיחה ({time.strftime('%H:%M')})"
         chats[new_c_title] = [{"role": "assistant", "content": "פתחתי שיחה חדשה. במה אוכל לסייע בתיק זה?"}]
         cur_ws["active_chat"] = new_c_title
+        save_all_data()
         st.rerun()
 
 current_chat_history = chats[cur_ws["active_chat"]]
@@ -326,25 +386,48 @@ for idx, msg in enumerate(current_chat_history):
             sp = msg["suggested_param"]
             if st.button(f"➕ הוסף פרמטר '{sp['name']}' לתיק", key=f"chat_add_p_{idx}"):
                 cur_ws["params"].append(sp)
+                save_all_data()
                 st.success(f"הפרמטר נוסף!")
                 st.rerun()
 
-chat_input = st.chat_input("שאל את ה-AI...")
+chat_input = st.chat_input("שאל את ה-AI בכל נושא...")
 
 if chat_input:
     current_chat_history.append({"role": "user", "content": chat_input})
-    q = chat_input.lower()
+    save_all_data()
     
-    reply = {"role": "assistant"}
-    if "תמונה" in q or "הדמיה" in q or "שרטוט" in q:
-        reply["content"] = f"הנה הדמיה ויזואלית מוצעת עבור העסק '{cur_ws.get('biz_type') or 'שלך'}':"
-        reply["image"] = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600"
-    elif "מחיר" in q or "עלות" in q or "רווח" in q:
-        reply["content"] = "בתמחור מוצרים מסוג זה, מומלץ לחשב את עלות חומר הגלם הישיר."
-        reply["suggested_param"] = {"name": "עלות חומר גלם ללוח", "type": "מספרי", "value": 120.0, "unit": 'ש"ח'}
+    # בניית הקשר מלא (System Context) עבור ה-AI
+    context_prompt = f"""
+    אתה יועץ עסקי ואסטרטגי חכם המלווה את המשתמש בזמן אמת.
+    נתוני התיק הנוכחי:
+    - שם התיק: {st.session_state.active_workspace}
+    - סוג העסק: {cur_ws.get('biz_type', 'לא הוגדר')}
+    - תיאור הבעיה: {cur_ws.get('problem', 'לא הוגדרה')}
+    - משתנים ופרמטרים קיימים בתיק: {json.dumps(cur_ws.get('params', []), ensure_ascii=False)}
+    
+    ענה למשתמש בצורה מקצועית, עניינית, חכמה וטבעית בעברית, תוך התייחסות מלאה להקשר התיק ולשאלה שנשאלה.
+    """
+    
+    ai_reply_text = ""
+    
+    if gemini_api_key:
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            # הפיכת היסטוריית הצ'אט למבנה של Gemini
+            history_formatted = []
+            for m in current_chat_history[:-1]:
+                role_mapped = "user" if m["role"] == "user" else "model"
+                history_formatted.append({"role": role_mapped, "parts": [m["content"]]})
+            
+            chat_session = model.start_chat(history=history_formatted)
+            response = chat_session.send_message(f"{context_prompt}\n\nשאלת המשתמש: {chat_input}")
+            ai_reply_text = response.text
+        except Exception as e:
+            ai_reply_text = f"קיבלתי את שאלתך: '{chat_input}'. לגבי העסק מסוג {cur_ws.get('biz_type','')} - ניתן לבחון פתרונות התייעלות תפעולית. (הערת מערכת: חיבור ה-AI נתקל בשגיאה: {e})"
     else:
-        reply["content"] = f"לגבי שאלתך בנושא '{chat_input}': בהתחשב בסוג העסק ({cur_ws.get('biz_type') or 'שטרם הוגדר'}), מומלץ לבחון ערוצי מכירה נוספים ואופטימיזציית תהליכים."
+        # מענה חכם ללא API KEY
+        ai_reply_text = f"לגבי שאלתך '{chat_input}': בהתחשב בסוג העסק ({cur_ws.get('biz_type') or 'שטרם הוגדר'}) והבעיה שציינת ('{cur_ws.get('problem') or 'כללי'}'), מומלץ לבצע ניתוח מעמיק של התמחור וערוצי המכירה."
 
-    current_chat_history.append(reply)
+    current_chat_history.append({"role": "assistant", "content": ai_reply_text})
+    save_all_data()
     st.rerun()
-

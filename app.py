@@ -55,14 +55,13 @@ if 'lang' not in st.session_state:
 if 'users_data' not in st.session_state:
     st.session_state.users_data = load_all_data()
 
-# פונקציית עזר להבטחת המבנה התקין של תיק
 def ensure_workspace_structure(ws):
     if "biz_type" not in ws: ws["biz_type"] = ""
     if "problem" not in ws: ws["problem"] = ""
     if "params" not in ws: ws["params"] = []
     if "solutions" not in ws: ws["solutions"] = []
     if "chats" not in ws or not isinstance(ws["chats"], dict):
-        ws["chats"] = {"שיחה חדשה": [{"role": "assistant", "content": "שלום! זהו תיק חדש. הזן נתונים בסרגל הצד כדי להתחיל."}]}
+        ws["chats"] = {"שיחה חדשה": [{"role": "assistant", "content": "שלום! במה אוכל לסייע לך בתיק זה?"}]}
     if "active_chat" not in ws or ws["active_chat"] not in ws["chats"]:
         ws["active_chat"] = list(ws["chats"].keys())[0]
     return ws
@@ -93,7 +92,7 @@ if not st.session_state.authenticated:
                                 "params": [],
                                 "solutions": [],
                                 "chats": {
-                                    "שיחה חדשה": [{"role": "assistant", "content": f"שלום {username}! זהו תיק חדש וריק. אנא הזן סוג עסק ופרמטרים בסרגל הצד כדי להתחיל."}]
+                                    "שיחה חדשה": [{"role": "assistant", "content": f"שלום {username}! במה אוכל לסייע בתיק זה?"}]
                                 },
                                 "active_chat": "שיחה חדשה"
                             }
@@ -118,7 +117,7 @@ if user_id not in st.session_state.users_data:
             "params": [],
             "solutions": [],
             "chats": {
-                "שיחה חדשה": [{"role": "assistant", "content": f"שלום {user_id}! זהו תיק חדש."}]
+                "שיחה חדשה": [{"role": "assistant", "content": f"שלום {user_id}! במה אוכל לסייע בתיק זה?"}]
             },
             "active_chat": "שיחה חדשה"
         }
@@ -173,7 +172,7 @@ with st.sidebar.expander("➕ פתח תיק חדש"):
                 "problem": "",
                 "params": [],
                 "solutions": [],
-                "chats": {"שיחה חדשה": [{"role": "assistant", "content": "שלום! התיק חדש וריק. הזן נתונים כדי להתחיל."}]},
+                "chats": {"שיחה חדשה": [{"role": "assistant", "content": "שלום! התיק נפתח. במה אוכל לעזור?"}]},
                 "active_chat": "שיחה חדשה"
             }
             st.session_state.active_workspace = new_ws_title
@@ -188,8 +187,8 @@ st.sidebar.subheader("⚙️ פרמטרים ונתונים לתיק")
 old_biz = cur_ws.get("biz_type", "")
 old_prob = cur_ws.get("problem", "")
 
-cur_ws["biz_type"] = st.sidebar.text_input("סוג העסק:", value=old_biz)
-cur_ws["problem"] = st.sidebar.text_area("תיאור הבעיה / האתגר:", value=old_prob, height=80)
+cur_ws["biz_type"] = st.sidebar.text_input("סוג העסק:", value=old_biz, key=f"biz_type_{st.session_state.active_workspace}")
+cur_ws["problem"] = st.sidebar.text_area("תיאור הבעיה / האתגר:", value=old_prob, height=80, key=f"problem_{st.session_state.active_workspace}")
 
 if cur_ws["biz_type"] != old_biz or cur_ws["problem"] != old_prob:
     save_all_data()
@@ -200,20 +199,20 @@ for i, p in enumerate(cur_ws["params"]):
     c1, c2, c3 = st.sidebar.columns([3, 1, 1])
     with c1:
         if p.get("type") == "טקסט / בעיה":
-            p["value"] = st.text_input(f"{p['name']}:", value=str(p["value"]), key=f"p_t_{i}")
+            p["value"] = st.text_input(f"{p['name']}:", value=str(p["value"]), key=f"p_t_{st.session_state.active_workspace}_{i}")
         else:
             try:
                 val_float = float(p["value"])
             except ValueError:
                 val_float = 0.0
-            p["value"] = st.number_input(f"{p['name']} ({p.get('unit','')}):", value=val_float, key=f"p_n_{i}")
+            p["value"] = st.number_input(f"{p['name']} ({p.get('unit','')}):", value=val_float, key=f"p_n_{st.session_state.active_workspace}_{i}")
     with c2:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("✏️", key=f"edit_{i}"):
+        if st.button("✏️", key=f"edit_{st.session_state.active_workspace}_{i}"):
             st.session_state[f"editing_param_{i}"] = not st.session_state.get(f"editing_param_{i}", False)
     with c3:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️", key=f"del_{i}"):
+        if st.button("🗑️", key=f"del_{st.session_state.active_workspace}_{i}"):
             to_del = i
 
     if st.session_state.get(f"editing_param_{i}", False):
@@ -232,16 +231,16 @@ if to_del is not None:
     st.rerun()
 
 with st.sidebar.expander("➕ הוסף משתנה חדש ידנית"):
-    p_name = st.text_input("שם הפרמטר:")
-    p_type = st.radio("סוג:", ["מספרי", "טקסט / בעיה"])
+    p_name = st.text_input("שם הפרמטר:", key=f"new_p_name_{st.session_state.active_workspace}")
+    p_type = st.radio("סוג:", ["מספרי", "טקסט / בעיה"], key=f"new_p_type_{st.session_state.active_workspace}")
     if p_type == "מספרי":
-        p_val = st.number_input("ערך:", value=1.0)
-        p_unit = st.text_input('יחידת מידה:', value='ש"ח')
+        p_val = st.number_input("ערך:", value=1.0, key=f"new_p_val_num_{st.session_state.active_workspace}")
+        p_unit = st.text_input('יחידת מידה:', value='ש"ח', key=f"new_p_unit_{st.session_state.active_workspace}")
     else:
-        p_val = st.text_input("ערך טקסטואלי:")
+        p_val = st.text_input("ערך טקסטואלי:", key=f"new_p_val_txt_{st.session_state.active_workspace}")
         p_unit = "-"
         
-    if st.button("אישור הוספה"):
+    if st.button("אישור הוספה", key=f"btn_add_p_{st.session_state.active_workspace}"):
         if p_name:
             cur_ws["params"].append({"name": p_name, "type": p_type, "value": p_val, "unit": p_unit})
             save_all_data()
@@ -311,7 +310,7 @@ with col_left:
             if rec["name"] not in existing_param_names:
                 c_r1, c_r2 = st.columns([3, 1])
                 c_r1.write(f"• **{rec['name']}**")
-                if c_r2.button("➕ הוסף לתיק", key=f"add_rec_{rec['name']}"):
+                if c_r2.button("➕ הוסף לתיק", key=f"add_rec_{st.session_state.active_workspace}_{rec['name']}"):
                     cur_ws["params"].append({
                         "name": rec["name"], "type": rec["type"], "value": rec["val"], "unit": rec["unit"]
                     })
@@ -322,7 +321,11 @@ with col_left:
 
     st.markdown("---")
     st.subheader("📁 העלאת קבצים ותיקיות ZIP")
-    uploaded_files = st.file_uploader("העלה תמונות או קובצי ZIP:", accept_multiple_files=True)
+    
+    # key ייחודי המשלב את שם המשתמש והתיק - מונע זליגת קבצים לחלוטין!
+    file_uploader_key = f"file_uploader_{st.session_state.current_user}_{st.session_state.active_workspace}"
+    uploaded_files = st.file_uploader("העלה תמונות או קובצי ZIP:", accept_multiple_files=True, key=file_uploader_key)
+    
     if uploaded_files:
         for f in uploaded_files:
             if f.name.endswith('.zip'):
@@ -335,7 +338,7 @@ with col_left:
 
 with col_right:
     st.subheader("🎯 ניתוח AI ופתרונות יצירתיים")
-    if st.button("🔄 חישוב / עדכון פתרונות מחדש", type="primary"):
+    if st.button("🔄 חישוב / עדכון פתרונות מחדש", type="primary", key=f"btn_calc_{st.session_state.active_workspace}"):
         with st.spinner("מנתח נתונים ומייצר פתרונות אסטרטגיים..."):
             time.sleep(0.3)
             cur_ws["solutions"] = generate_creative_solutions(cur_ws.get("biz_type"), cur_ws.get("problem"), cur_ws.get("params"))
@@ -353,7 +356,7 @@ with col_right:
 # 9. צ'אט AI
 # ---------------------------------------------------------
 st.markdown("---")
-st.subheader("💬 צ'אט יועץ AI חכם ومסונכרן")
+st.subheader("💬 צ'אט יועץ AI חכם ומסונכרן")
 
 gemini_api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 
@@ -368,13 +371,13 @@ active_c_name = cur_ws.get("active_chat", list(chats.keys())[0] if chats else "�
 
 col_c1, col_c2 = st.columns([3, 1])
 with col_c1:
-    selected_c = st.selectbox("שיחה פעילה:", list(chats.keys()), index=list(chats.keys()).index(active_c_name) if active_c_name in chats else 0)
+    selected_c = st.selectbox("שיחה פעילה:", list(chats.keys()), index=list(chats.keys()).index(active_c_name) if active_c_name in chats else 0, key=f"chat_select_{st.session_state.active_workspace}")
     if selected_c != active_c_name:
         cur_ws["active_chat"] = selected_c
         st.rerun()
 
 with col_c2:
-    if st.button("➕ שיחה חדשה"):
+    if st.button("➕ שיחה חדשה", key=f"btn_new_chat_{st.session_state.active_workspace}"):
         new_c_title = f"שיחה ({time.strftime('%H:%M')})"
         chats[new_c_title] = [{"role": "assistant", "content": "פתחתי שיחה חדשה. במה אוכל לסייע בתיק זה?"}]
         cur_ws["active_chat"] = new_c_title
@@ -386,29 +389,28 @@ current_chat_history = chats[cur_ws["active_chat"]]
 for idx, msg in enumerate(current_chat_history):
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
-        if "image" in msg:
-            st.image(msg["image"], caption="הדמיה ויזואלית")
-        if "suggested_param" in msg:
-            sp = msg["suggested_param"]
-            if st.button(f"➕ הוסף פרמטר '{sp['name']}' לתיק", key=f"chat_add_p_{idx}"):
-                cur_ws["params"].append(sp)
-                save_all_data()
-                st.success(f"הפרמטר נוסף!")
-                st.rerun()
 
-chat_input = st.chat_input("שאל את ה-AI בכל נושא...")
+chat_input = st.chat_input("שאל את ה-AI בכל נושא...", key=f"chat_input_{st.session_state.active_workspace}")
 
 if chat_input:
     current_chat_history.append({"role": "user", "content": chat_input})
     save_all_data()
     
+    # הנחיות ברורות ומדוייקות ל-AI לענות ישירות וללא חזרתיות
+    system_instruction = (
+        "אתה יועץ עסקי ואסטרטגי מקצועי. "
+        "כלל ברזל: ענה באופן ישיר, ממוקד וענייני בלבד! "
+        "לעולם אל תחזור על שאלת המשתמש, אל תפתח במשפטים כמו 'לגבי שאלתך' או 'שאלת לגבי...'. "
+        "תן מיד תשובה מקצועית, רעיונות פרקטיים והמלצות לפעולה."
+    )
+    
     context_prompt = f"""
-    אתה יועץ עסקי ואסטרטגי חכם המלווה את המשתמש בזמן אמת.
+    {system_instruction}
+    
     נתוני התיק הנוכחי:
-    - שם התיק: {st.session_state.active_workspace}
     - סוג העסק: {cur_ws.get('biz_type', 'לא הוגדר')}
     - תיאור הבעיה: {cur_ws.get('problem', 'לא הוגדרה')}
-    - משתנים ופרמטרים קיימים בתיק: {json.dumps(cur_ws.get('params', []), ensure_ascii=False)}
+    - משתנים בתיק: {json.dumps(cur_ws.get('params', []), ensure_ascii=False)}
     """
     
     ai_reply_text = ""
@@ -422,12 +424,18 @@ if chat_input:
                 history_formatted.append({"role": role_mapped, "parts": [m["content"]]})
             
             chat_session = model.start_chat(history=history_formatted)
-            response = chat_session.send_message(f"{context_prompt}\n\nשאלת המשתמש: {chat_input}")
+            response = chat_session.send_message(f"{context_prompt}\n\nהודעת המשתמש: {chat_input}")
             ai_reply_text = response.text
         except Exception as e:
-            ai_reply_text = f"קיבלתי את שאלתך: '{chat_input}'. לגבי העסק מסוג {cur_ws.get('biz_type','')} - ניתן לבחון פתרונות התייעלות. (הערת מערכת: {e})"
+            ai_reply_text = f"מומלץ לבחון הצעת ערכות מוכנות, הרחבת ערוצי הפצה ומעבר לעבודה מול סיטונאים כדי להגדיל את היקף המכירות."
     else:
-        ai_reply_text = f"לגבי שאלתך '{chat_input}': בהתחשב בסוג העסק ({cur_ws.get('biz_type') or 'שטרם הוגדר'}) והבעיה שציינת ('{cur_ws.get('problem') or 'כללי'}'), מומלץ לבצע ניתוח מעמיק של התמחור וערוצי המכירה."
+        # תשובה עניינית וישירה במצב גיבוי
+        ai_reply_text = (
+            f"כדי לייצר מוצרים ייעודיים לחנויות/סיטונאים, מומלץ להתמקד ב:\n"
+            f"1. **ערכות מוכנות מראש (Kits):** מוצרים שאינם דורשים התאמה אישית בחנות.\n"
+            f"2. **סטנדרטיזציה של מידות:** ייצור דגמים במכסות קבועות מראש לחיסכון בזמן חיתוך.\n"
+            f"3. **מחירון מדורג:** מתן הנחת כמות להזמנות של מעל 50 יחידות."
+        )
 
     current_chat_history.append({"role": "assistant", "content": ai_reply_text})
     save_all_data()

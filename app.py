@@ -1,14 +1,5 @@
-import subprocess
-import sys
-
-# התקנה אוטומטית של הספרייה במידה והיא חסרה בשרת
-try:
-    import google.generativeai as genai
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
-    import google.generativeai as genai
-
 import streamlit as st
+from google import genai
 import os
 
 # הגדרת תצורת העמוד
@@ -16,7 +7,7 @@ st.set_page_config(page_title="Gemini AI Chat", page_icon="🤖", layout="wide")
 
 st.title("🤖 צ'אט AI עם Gemini")
 
-# 1. שליפת המפתח
+# שליפת המפתח מ-Secrets או מהמשתמש
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
 
 if not GEMINI_API_KEY:
@@ -33,15 +24,14 @@ if not GEMINI_API_KEY:
     st.info("כדי להשתמש בצ'אט, הוסף את המפתח ב-Streamlit Secrets או הזן אותו בסרגל הצד (Sidebar) משמאל.")
     st.stop()
 
-# 2. הגדרת חיבור ה-API
+# יצירת הלקוח של גוגל
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    client = genai.Client(api_key=GEMINI_API_KEY)
 except Exception as e:
-    st.error(f"שגיאה בהגדרת ה-API: {e}")
+    st.error(f"שגיאה בהתחברות ל-API: {e}")
     st.stop()
 
-# 3. ניהול היסטוריית השיחה
+# ניהול היסטוריית השיחה
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
@@ -49,7 +39,7 @@ for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 4. קבלת קלט מהמשתמש ושליחה ל-Gemini
+# קבלת קלט ושליחה
 user_prompt = st.chat_input("שאל את ה-AI בכל נושא...")
 
 if user_prompt:
@@ -59,13 +49,10 @@ if user_prompt:
     with st.chat_message("assistant"):
         with st.spinner("חורז תשובה..."):
             try:
-                formatted_history = [
-                    {"role": "user" if msg["role"] == "user" else "model", "parts": [msg["content"]]}
-                    for msg in st.session_state.chat_history[:-1]
-                ]
-                
-                chat = model.start_chat(history=formatted_history)
-                response = chat.send_message(user_prompt)
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=user_prompt
+                )
                 
                 st.markdown(response.text)
                 st.session_state.chat_history.append({"role": "assistant", "content": response.text})

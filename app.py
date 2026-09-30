@@ -1,441 +1,238 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OptiFlow AI</title>
-    <style>
-        :root {
-            --primary: #003366;
-            --primary-hover: #002244;
-            --bg-light: #f4f6f9;
-            --card-bg: #ffffff;
-            --text-dark: #333333;
-            --accent-green: #00875a;
-            --border-color: #dddddd;
-        }
+import streamlit as st
 
-        * {
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
+# הגדרת תצורת העמוד
+st.set_page_config(
+    page_title="OptiFlow AI",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-        body {
-            background-color: var(--bg-light);
-            color: var(--text-dark);
-            min-height: 100vh;
-        }
+# הגדרת מצב הניווט (Session State)
+if "page" not in st.mutable_state if hasattr(st, 'mutable_state') else st.session_state:
+    st.session_state["page"] = "screen_1"
 
-        .hidden {
-            display: none !important;
-        }
+def set_page(page_name):
+    st.session_state["page"] = page_name
 
-        /* --- כפתור/לוגו חזרה לרענון/בית --- */
-        .app-logo {
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+# עיצוב CSS מותאם אישית לתמיכה ב-RTL ובמראה הנקי
+st.markdown("""
+<style>
+    /* כיוון טקסט RTL */
+    html, body, [class*="css"]  {
+        direction: rtl;
+        text-align: right;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* הסתרת סרגל צד דיפולטיבי במידת הצורך */
+    [data-testid="stSidebar"] {
+        display: none;
+    }
 
-        /* --- סגנונות מסכי התחברות / הרשמה / שחזור (מסכים 1, 2, 3) --- */
-        .auth-container {
-            max-width: 450px;
-            margin: 60px auto;
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-        }
+    /* כותרת עליונה */
+    .app-header {
+        background-color: #003366;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
 
-        .auth-header {
-            background-color: var(--primary);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            font-size: 1.4rem;
-            position: relative;
-        }
+    /* עיצוב כרטיסים */
+    .custom-card {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
 
-        .auth-body {
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+    .card-title {
+        background-color: #003366;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px 6px 0 0;
+        margin: -20px -20px 15px -20px;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            position: relative;
-        }
+    /* כפתור עסק חדש בצד שמאל למטה */
+    .create-btn-container {
+        display: flex;
+        justify-content: flex-start;
+        margin-top: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-        .form-group label {
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
 
-        .input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 1rem;
-            background-color: #f9f9f9;
-        }
-
-        .toggle-password {
-            position: absolute;
-            left: 10px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            font-size: 1.1rem;
-            user-select: none;
-        }
-
-        .btn {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            text-align: center;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background-color: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn-secondary {
-            background-color: #e0e0e0;
-            color: #333;
-        }
-
-        .btn-link {
-            background: none;
-            color: var(--primary);
-            font-size: 0.85rem;
-            text-decoration: underline;
-            cursor: pointer;
-            padding: 0;
-            border: none;
-            text-align: right;
-        }
-
-        .auth-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 5px;
-        }
-
-        /* --- סגנונות מסך ראשי לקוח --- */
-        .main-header {
-            background-color: var(--primary);
-            color: white;
-            padding: 12px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .main-nav {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            background-color: #ffffff;
-            padding: 8px 16px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .main-nav a {
-            color: var(--text-dark);
-            text-decoration: none;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .main-layout {
-            display: grid;
-            grid-template-columns: 2fr 1fr; /* שמאל: עסקים/נושאים, ימין: פרטי לקוח */
-            gap: 20px;
-            padding: 20px;
-            max-width: 1300px;
-            margin: 0 auto;
-            position: relative;
-            min-height: calc(100vh - 120px);
-        }
-
-        .card {
-            background: white;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            overflow: hidden;
-        }
-
-        .card-header {
-            background-color: var(--primary);
-            color: white;
-            padding: 12px 16px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .card-body {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 8px;
-            font-size: 0.95rem;
-        }
-
-        .info-label {
-            font-weight: bold;
-            color: #555;
-        }
-
-        .topics-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .topic-item {
-            background-color: #f8f9fa;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 15px;
-            cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .topic-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            border-color: var(--primary);
-        }
-
-        .btn-create-business {
-            position: absolute;
-            bottom: 20px;
-            right: 20px; /* בצד שמאל של המסך (RTL) */
-            background-color: var(--accent-green);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: bold;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            cursor: pointer;
-            border: none;
-        }
-
-        .btn-create-business:hover {
-            background-color: #006c48;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- ==================== מסך 1: התחברות ==================== -->
-    <div id="screen-1" class="auth-container">
-        <div class="auth-header">
-            <div class="app-logo" onclick="goToScreen('screen-1')">
-                OptiFlow AI 🚀
+# ==========================================
+# מסך 1: התחברות
+# ==========================================
+if st.session_state["page"] == "screen_1":
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+            <div style="background-color: #003366; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h2 style="margin:0;">OptiFlow AI 🚀 (1)</h2>
+                <p style="margin:5px 0 0 0; font-size:0.9rem;">כניסה למערכת</p>
             </div>
-            <span style="font-size: 0.9rem; font-weight: normal;">כניסה למערכת</span>
+        """, unsafe_allow_html=True)
+        
+        with st.container():
+            st.text_input("שם משתמש (2)", key="login_user")
+            st.text_input("סיסמה (3)", type="password", key="login_pass", help="לחץ על האייקון בצד שמאל לצפייה בסיסמה")
+            
+            # כפתור שכחתי שם משתמש / סיסמה
+            if st.button("שכחתי שם משתמש או סיסמה (4)", type="secondary"):
+                set_page("screen_2")
+                st.rerun()
+            
+            st.write("")
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                if st.button("התחברות (5)", type="primary", use_container_width=True):
+                    set_page("screen_main")
+                    st.rerun()
+            with col_b2:
+                if st.button("הירשם (6)", use_container_width=True):
+                    set_page("screen_3")
+                    st.rerun()
+
+
+# ==========================================
+# מסך 2: שכחתי שם משתמש / סיסמה
+# ==========================================
+elif st.session_state["page"] == "screen_2":
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+            <div style="background-color: #003366; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h2 style="margin:0;">OptiFlow AI 🚀</h2>
+                <p style="margin:5px 0 0 0;">שחזור פרטי גישה למערכת</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.text_input("דואר אלקטרוני לשחזור (7)")
+        st.text_input("מספר טלפון (8)")
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.button("שלח קוד (9)", type="primary", use_container_width=True)
+        with col_b:
+            if st.button("ביטול (10)", use_container_width=True):
+                set_page("screen_1")
+                st.rerun()
+                
+        if st.button("אישור ושחזור (11)", use_container_width=True):
+            st.success("הוראות שחזור נשלחו בהצלחה!")
+
+
+# ==========================================
+# מסך 3: הרשמה למערכת
+# ==========================================
+elif st.session_state["page"] == "screen_3":
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+            <div style="background-color: #003366; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h2 style="margin:0;">OptiFlow AI 🚀</h2>
+                <p style="margin:5px 0 0 0;">הרשמה למערכת</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_name1, col_name2 = st.columns(2)
+        with col_name1:
+            st.text_input("שם פרטי (12)")
+        with col_name2:
+            st.text_input("שם משפחה (13)")
+            
+        st.text_input('דוא"ל (15)')
+        st.text_input("טלפון (16)")
+        st.text_input("סיסמה (17)", type="password")
+        
+        if st.button("סיום הרשמה (18)", type="primary", use_container_width=True):
+            set_page("screen_main")
+            st.rerun()
+            
+        if st.button("חזרה להתחברות", use_container_width=True):
+            set_page("screen_1")
+            st.rerun()
+
+
+# ==========================================
+# המסך הראשי (לקוח)
+# ==========================================
+elif st.session_state["page"] == "screen_main":
+    # כותרת עליונה + לוגו מימין שניתן ללחוץ עליו לחזרה
+    st.markdown("""
+        <div class="app-header">
+            <div><strong>OptiFlow AI | מנהל מערכת 🚀</strong></div>
+            <div>שלום, רובי | שפה: עברית</div>
         </div>
-        <div class="auth-body">
-            <div class="form-group">
-                <label>שם משתמש (2)</label>
-                <input type="text" id="login-username" class="form-control" placeholder="הכנס שם משתמש">
+    """, unsafe_allow_html=True)
+
+    # סרגל כלים עליון
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 5])
+    with c1:
+        st.button("🏠 מסך ראשי")
+    with c2:
+        st.button("⚙️ הגדרות")
+    with c3:
+        st.button("📞 צור קשר")
+
+    st.markdown("<hr style='margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
+
+    # חלוקת המסך לפי הסקיצה:
+    # בצד ימין (col_right): משבצת אחת מאוחדת של פרטי לקוח
+    # בצד שמאל (col_left): נושאים ועסקים בלחיצה
+    col_left, col_right = st.columns([2, 1])
+
+    with col_right:
+        st.markdown("""
+            <div class="custom-card">
+                <div class="card-title">👤 פרטי לקוח</div>
+                <p><strong>שם משתמש:</strong> רובי</p>
+                <p><strong>סטטוס חשבון:</strong> פעיל (מורשה מערכת)</p>
+                <p><strong>תאריך חיבור:</strong> מחובר כעת</p>
+                <hr>
+                <p><strong>סוג מנוי:</strong> OptiFlow Enterprise AI</p>
+                <p><strong>מכסת ניתוחים:</strong> ללא הגבלה</p>
+                <p><strong>סטטוס שרתים:</strong> תקין לקבלה ולעיבוד</p>
+                <hr>
+                <p><strong>דואר אלקטרוני:</strong> user@example.com</p>
+                <p><strong>מספר טלפון:</strong> 050-0000000</p>
             </div>
+        """, unsafe_allow_html=True)
 
-            <div class="form-group">
-                <label>סיסמה (3)</label>
-                <div class="input-wrapper">
-                    <input type="password" id="login-password" class="form-control" placeholder="הכנס סיסמה">
-                    <button class="toggle-password" onclick="togglePassword('login-password')">👁️</button>
-                </div>
+    with col_left:
+        st.markdown("""
+            <div class="custom-card">
+                <div class="card-title">📂 נושאים ועסקים</div>
             </div>
+        """, unsafe_allow_html=True)
+        
+        # רשימת העסקים / הנושאים
+        with st.expander("🏢 עסק / נושא 1", expanded=True):
+            st.write("פירוט הנושא, נתונים מדדי ביצוע ודוחות פעילים עבור עסק 1.")
+            st.button("פתיחת לוח בקרה עסק 1", key="b1")
+            
+        with st.expander("🏢 עסק / נושא 2"):
+            st.write("פירוט הנושא, נתונים מדדי ביצוע ודוחות פעילים עבור עסק 2.")
+            st.button("פתיחת לוח בקרה עסק 2", key="b2")
 
-            <div class="auth-actions">
-                <button class="btn-link" onclick="goToScreen('screen-2')">שכחתי שם משתמש או סיסמה (4)</button>
-            </div>
+        with st.expander("🏢 עסק / נושא 3"):
+            st.write("פירוט הנושא, נתונים מדדי ביצוע ודוחות פעילים עבור עסק 3.")
+            st.button("פתיחת לוח בקרה עסק 3", key="b3")
 
-            <button class="btn btn-primary" onclick="handleLogin()">התחברות (5)</button>
-            <button class="btn btn-secondary" onclick="goToScreen('screen-3')">הירשם (6)</button>
-        </div>
-    </div>
-
-    <!-- ==================== מסך 2: שכחתי שם משתמש / סיסמה ==================== -->
-    <div id="screen-2" class="auth-container hidden">
-        <div class="auth-header">
-            <div class="app-logo" onclick="goToScreen('screen-1')">OptiFlow AI 🚀</div>
-            <span style="font-size: 0.9rem; font-weight: normal;">שחזור פרטי גישה</span>
-        </div>
-        <div class="auth-body">
-            <div class="form-group">
-                <label>דואר אלקטרוני לשחזור (7)</label>
-                <input type="email" class="form-control" placeholder="user@example.com">
-            </div>
-            <div class="form-group">
-                <label>מספר טלפון (8)</label>
-                <input type="tel" class="form-control" placeholder="050-0000000">
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn btn-primary" style="flex: 1;">שלח קוד (9)</button>
-                <button class="btn btn-secondary" style="flex: 1;" onclick="goToScreen('screen-1')">ביטול (10)</button>
-            </div>
-            <button class="btn btn-primary" style="margin-top: 10px;">אישור ושחזור (11)</button>
-        </div>
-    </div>
-
-    <!-- ==================== מסך 3: הרשמה ==================== -->
-    <div id="screen-3" class="auth-container hidden">
-        <div class="auth-header">
-            <div class="app-logo" onclick="goToScreen('screen-1')">OptiFlow AI 🚀</div>
-            <span style="font-size: 0.9rem; font-weight: normal;">הרשמה للمערכת</span>
-        </div>
-        <div class="auth-body">
-            <div class="form-group"><label>שם פרטי (12)</label><input type="text" class="form-control"></div>
-            <div class="form-group"><label>שם משפחה (13)</label><input type="text" class="form-control"></div>
-            <div class="form-group"><label>דוא"ל (15)</label><input type="email" class="form-control"></div>
-            <div class="form-group"><label>טלפון (16)</label><input type="tel" class="form-control"></div>
-            <div class="form-group"><label>סיסמה (17)</label><input type="password" class="form-control"></div>
-            <button class="btn btn-primary" onclick="goToScreen('screen-main')">סיום הרשמה (18)</button>
-            <button class="btn btn-secondary" onclick="goToScreen('screen-1')">חזרה להתחברות</button>
-        </div>
-    </div>
-
-    <!-- ==================== מסך ראשי לקוח ==================== -->
-    <div id="screen-main" class="hidden">
-        <!-- Header עליון -->
-        <header class="main-header">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span>שלום, רובי | שפה: עברית</span>
-            </div>
-            <div class="app-logo" onclick="goToScreen('screen-1')">
-                OptiFlow AI | מנהל מערכת 🚀 (1)
-            </div>
-        </header>
-
-        <!-- סרגל כלים -->
-        <nav class="main-nav">
-            <a href="#">🏠 מסך ראשי</a>
-            <a href="#">⚙️ הגדרות מערכת</a>
-            <a href="#">📞 צור קשר</a>
-        </nav>
-
-        <!-- תוכן מרכזי -->
-        <div class="main-layout">
-
-            <!-- צד שמאל: נושאים / עסקים בלחיצה -->
-            <div class="card">
-                <div class="card-header">
-                    📁 נושאים ועסקים קיימים
-                </div>
-                <div class="card-body topics-list">
-                    <div class="topic-item">
-                        <h3>נושא / עסק 1</h3>
-                        <p style="color: #666; font-size: 0.85rem;">לחץ לצפייה בפרטים וניהול הנושא</p>
-                    </div>
-                    <div class="topic-item">
-                        <h3>נושא / עסק 2</h3>
-                        <p style="color: #666; font-size: 0.85rem;">לחץ לצפייה בפרטים וניהול הנושא</p>
-                    </div>
-                    <div class="topic-item">
-                        <h3>נושא / עסק 3</h3>
-                        <p style="color: #666; font-size: 0.85rem;">לחץ לצפייה בפרטים וניהול הנושא</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- צד ימין: קובייה אחת מאוחדת של פרטי לקוח -->
-            <div class="card">
-                <div class="card-header">
-                    👤 פרטי לקוח
-                </div>
-                <div class="card-body">
-                    <h4 style="color: var(--primary); margin-bottom: 8px;">פרטים אישיים</h4>
-                    <div class="info-row"><span class="info-label">שם משתמש:</span> <span>רובי</span></div>
-                    <div class="info-row"><span class="info-label">סטטוס חשבון:</span> <span>פעיל (מורשה מערכת)</span></div>
-                    <div class="info-row"><span class="info-label">תאריך חיבור:</span> <span>מחובר כעת</span></div>
-                    <div class="info-row"><span class="info-label">דואר אלקטרוני:</span> <span>user@example.com</span></div>
-                    <div class="info-row"><span class="info-label">טלפון נייד:</span> <span>050-0000000</span></div>
-
-                    <h4 style="color: var(--primary); margin-top: 15px; margin-bottom: 8px;">זכאות ותפעול</h4>
-                    <div class="info-row"><span class="info-label">סוג מנוי:</span> <span>OptiFlow Enterprise AI</span></div>
-                    <div class="info-row"><span class="info-label">מכסת ניתוחים:</span> <span>ללא הגבלה</span></div>
-                    <div class="info-row"><span class="info-label">סטטוס שרתים:</span> <span>תקין לקבלה ולעיבוד</span></div>
-                </div>
-            </div>
-
-            <!-- כפתור יצירת עסק חדש בצד שמאל למטה -->
-            <button class="btn-create-business">➕ צור עסק חדש</button>
-
-        </div>
-    </div>
-
-    <script>
-        // ניווט בין המסכים
-        function goToScreen(screenId) {
-            const screens = ['screen-1', 'screen-2', 'screen-3', 'screen-main'];
-            screens.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
-            document.getElementById(screenId).classList.remove('hidden');
-        }
-
-        // צפייה / הסתרת סיסמה
-        function togglePassword(inputId) {
-            const input = document.getElementById(inputId);
-            if (input.type === 'password') {
-                input.type = 'text';
-            } else {
-                input.type = 'password';
-            }
-        }
-
-        // התחברות למערכת למסך ראשי
-        function handleLogin() {
-            goToScreen('screen-main');
-        }
-    </script>
-</body>
-</html>
+        # כפתור ליצירת עסק חדש בתחתית צד שמאל
+        st.markdown('<div class="create-btn-container">', unsafe_allow_html=True)
+        if st.button("➕ צור עסק חדש", type="primary"):
+            st.toast("נפתחה חלונית ליצירת עסק חדש")
+        st.markdown('</div>', unsafe_allow_html=True)

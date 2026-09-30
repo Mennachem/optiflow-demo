@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 # הגדרת מצב הניווט (Session State)
-if "page" not in st.mutable_state if hasattr(st, 'mutable_state') else st.session_state:
+if "page" not in st.session_state:
     st.session_state["page"] = "screen_1"
 
 def set_page(page_name):
@@ -79,29 +79,29 @@ if st.session_state["page"] == "screen_1":
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-            <div style="background-color: #003366; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h2 style="margin:0;">OptiFlow AI 🚀 (1)</h2>
+            <div style="background-color: #003366; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; cursor: pointer;" onclick="window.location.reload();">
+                <h2 style="margin:0;">OptiFlow AI 🚀</h2>
                 <p style="margin:5px 0 0 0; font-size:0.9rem;">כניסה למערכת</p>
             </div>
         """, unsafe_allow_html=True)
         
         with st.container():
-            st.text_input("שם משתמש (2)", key="login_user")
-            st.text_input("סיסמה (3)", type="password", key="login_pass", help="לחץ על האייקון בצד שמאל לצפייה בסיסמה")
+            st.text_input("שם משתמש", key="login_user")
+            st.text_input("סיסמה", type="password", key="login_pass", help="לחץ על האייקון בצד שמאל לצפייה בסיסמה")
             
             # כפתור שכחתי שם משתמש / סיסמה
-            if st.button("שכחתי שם משתמש או סיסמה (4)", type="secondary"):
+            if st.button("שכחתי שם משתמש או סיסמה", type="secondary"):
                 set_page("screen_2")
                 st.rerun()
             
             st.write("")
             col_b1, col_b2 = st.columns(2)
             with col_b1:
-                if st.button("התחברות (5)", type="primary", use_container_width=True):
+                if st.button("התחברות", type="primary", use_container_width=True):
                     set_page("screen_main")
                     st.rerun()
             with col_b2:
-                if st.button("הירשם (6)", use_container_width=True):
+                if st.button("הירשם", use_container_width=True):
                     set_page("screen_3")
                     st.rerun()
 
@@ -119,18 +119,18 @@ elif st.session_state["page"] == "screen_2":
             </div>
         """, unsafe_allow_html=True)
         
-        st.text_input("דואר אלקטרוני לשחזור (7)")
-        st.text_input("מספר טלפון (8)")
+        st.text_input("דואר אלקטרוני לשחזור")
+        st.text_input("מספר טלפון")
         
         col_a, col_b = st.columns(2)
         with col_a:
-            st.button("שלח קוד (9)", type="primary", use_container_width=True)
+            st.button("שלח קוד", type="primary", use_container_width=True)
         with col_b:
-            if st.button("ביטול (10)", use_container_width=True):
+            if st.button("ביטול", use_container_width=True):
                 set_page("screen_1")
                 st.rerun()
                 
-        if st.button("אישור ושחזור (11)", use_container_width=True):
+        if st.button("אישור ושחזור", use_container_width=True):
             st.success("הוראות שחזור נשלחו בהצלחה!")
 
 
@@ -149,15 +149,15 @@ elif st.session_state["page"] == "screen_3":
         
         col_name1, col_name2 = st.columns(2)
         with col_name1:
-            st.text_input("שם פרטי (12)")
+            st.text_input("שם פרטי")
         with col_name2:
-            st.text_input("שם משפחה (13)")
+            st.text_input("שם משפחה")
             
-        st.text_input('דוא"ל (15)')
-        st.text_input("טלפון (16)")
-        st.text_input("סיסמה (17)", type="password")
+        st.text_input('דוא"ל')
+        st.text_input("טלפון")
+        st.text_input("סיסמה", type="password")
         
-        if st.button("סיום הרשמה (18)", type="primary", use_container_width=True):
+        if st.button("סיום הרשמה", type="primary", use_container_width=True):
             set_page("screen_main")
             st.rerun()
             
@@ -170,7 +170,7 @@ elif st.session_state["page"] == "screen_3":
 # המסך הראשי (לקוח)
 # ==========================================
 elif st.session_state["page"] == "screen_main":
-    # כותרת עליונה + לוגו מימין שניתן ללחוץ עליו לחזרה
+    # כותרת עליונה + לוגו מימין
     st.markdown("""
         <div class="app-header">
             <div><strong>OptiFlow AI | מנהל מערכת 🚀</strong></div>

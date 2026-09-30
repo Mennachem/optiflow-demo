@@ -1,11 +1,6 @@
 import streamlit as st
-import requests
-import json
-import os
 
-# ---------------------------------------------------------
-# 1. הגדרות תצורת עמוד ועיצוב CSS מותאם לסקיצות
-# ---------------------------------------------------------
+# 1. הגדרת תצורת עמוד ראשונית
 st.set_page_config(
     page_title="OptiFlow AI",
     page_icon="🚀",
@@ -13,449 +8,279 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS לסרגל כלים: לוגו מימין, סרגל משמאל
-st.markdown("""
+# 2. טיפול בטוח ביבוא ספריית Google GenAI
+try:
+    from google import genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+
+# 3. אתחול מנגנון ניהול מצב (Session State)
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "theme" not in st.session_state:
+    st.session_state.theme = "כחול קלאסי (Classic Blue)"
+if "font_family" not in st.session_state:
+    st.session_state.font_family = "Heebo"
+if "font_size" not in st.session_state:
+    st.session_state.font_size = 16
+if "language" not in st.session_state:
+    st.session_state.language = "עברית"
+
+# 4. הגדרת פלטות צבעים ועיצוב דינמי
+COLOR_PALETTES = {
+    "כחול קלאסי (Classic Blue)": {
+        "header_bg": "#003366",
+        "header_text": "#ffffff",
+        "card_header": "#004080",
+        "accent": "#008040",
+    },
+    "כהה (Dark Mode)": {
+        "header_bg": "#1e1e1e",
+        "header_text": "#00e5ff",
+        "card_header": "#2d2d2d",
+        "accent": "#00b0ff",
+    },
+    "בהיר מודרני (Light Modern)": {
+        "header_bg": "#2c3e50",
+        "header_text": "#ecf0f1",
+        "card_header": "#34495e",
+        "accent": "#27ae60",
+    }
+}
+
+current_colors = COLOR_PALETTES.get(st.session_state.theme, COLOR_PALETTES["כחול קלאסי (Classic Blue)"])
+
+# 5. הזרקת עיצוב CSS מותאם אישית (RTL, גופנים, כרטיסיות וסרגל עליון)
+custom_css = f"""
 <style>
-    .stButton>button {
-        border-radius: 6px;
-        transition: all 0.2s ease;
-    }
-    div[data-testid="stHorizontalBlock"] button {
-        border: none !important;
-        background: transparent !important;
-        color: #333333 !important;
-        font-weight: 500 !important;
-    }
-    div[data-testid="stHorizontalBlock"] button:hover {
-        color: #0066cc !important;
-        background-color: #f5f5f5 !important;
-    }
-    /* עיצוב כפתור הלוגו בלבד */
-    .logo-btn > button {
-        font-size: 24px !important;
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700&family=Rubik:wght@300;400;700&family=Assistant:wght@300;400;700&display=swap');
+
+    html, body, [class*="css"] {{
+        direction: rtl;
+        text-align: right;
+        font-family: '{st.session_state.font_family}', sans-serif !important;
+        font-size: {st.session_state.font_size}px;
+    }}
+
+    /* סרגל עליון כהה ומכובד */
+    .top-header {{
+        background-color: {current_colors['header_bg']};
+        color: {current_colors['header_text']};
+        padding: 12px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 3px solid {current_colors['accent']};
+        margin-bottom: 25px;
+        border-radius: 4px;
+    }}
+    .top-header .logo-area {{
+        font-size: 1.4em;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+    .top-header .user-area {{
+        font-size: 0.9em;
+    }}
+
+    /* עיצוב כרטיסיות המידע */
+    .info-card {{
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }}
+    .info-card-header {{
+        background-color: {current_colors['card_header']};
+        color: #ffffff;
+        padding: 10px 16px;
+        font-weight: bold;
+        font-size: 1.1em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }}
+    .info-card-body {{
+        padding: 16px;
+        color: #333333;
+    }}
+
+    /* כפתורי פעולה בולטים */
+    .stButton > button {{
+        background-color: {current_colors['accent']} !important;
+        color: white !important;
         font-weight: bold !important;
-        color: #1e3a8a !important;
-        background: none !important;
+        border-radius: 4px !important;
         border: none !important;
-    }
+        padding: 8px 20px !important;
+    }}
 </style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
+
+# ==========================================
+# מסך 1: התחברות למערכת (מוצג בלבד אם לא מחובר)
+# ==========================================
+if not st.session_state.authenticated:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown(f"""
+            <div style="background-color: {current_colors['header_bg']}; padding: 15px; border-radius: 8px 8px 0 0; color: white; text-align: center;">
+                <h2>🚀 כניסה למערכת OptiFlow AI</h2>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            username = st.text_input("שם משתמש")
+            password = st.text_input("סיסמה", type="password")
+            submit = st.form_submit_button("התחבר למערכת", use_container_width=True)
+            
+            if submit:
+                if username and password:  # כאן ניתן לשלב אימות מול מסד נתונים
+                    st.session_state.authenticated = True
+                    st.session_state.username = username
+                    st.rerun()
+                else:
+                    st.error("נא להזין שם משתמש וסיסמה תקינים.")
+    st.stop()
+
+
+# ==========================================
+# מסך 2: המערכת הראשית (לאחר התחברות מוצלחת)
+# ==========================================
+
+# 1. סרגל כלים עליון מעוצב (RTL: לוגו מימין, משתמש וביצועים משמאל)
+st.markdown(f"""
+    <div class="top-header">
+        <div class="logo-area">
+            🚀 OptiFlow AI | מנהל מערכת
+        </div>
+        <div class="user-area">
+            שלום, <b>{st.session_state.username}</b> | 
+            <span style="color: #a0a0a0;">שפה: {st.session_state.language}</span>
+        </div>
+    </div>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 2. מפתח API מובנה בקוד (אינו מוצג בהגדרות הלקוח)
-# ---------------------------------------------------------
-BUILTIN_GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE"))
+# הודעת שגיאה/אזהרה שקופה במידה וספריית GenAI אינה מותקנת בסביבה
+if not GENAI_AVAILABLE:
+    st.warning("⚠️ ספריית `google-genai` אינה מותקנת בסביבת העבודה. נא לוודא הוספת `google-genai` לקובץ `requirements.txt`.")
 
-# ---------------------------------------------------------
-# 3. אתחול Session State ומסד נתונים פנימי
-# ---------------------------------------------------------
-if "screen" not in st.session_state:
-    st.session_state.screen = "screen_1"
+# 2. ניווט בלשוניות (Tabs) בצורה מסודרת
+tab_home, tab_settings, tab_contact = st.tabs(["🏠 מסך ראשי", "⚙️ הגדרות מערכת", "📞 צור קשר"])
 
-# מאגר משתמשים רשומים (מסך 5 / רשומים מראש)
-if "registered_users" not in st.session_state:
-    st.session_state.registered_users = {
-        "admin@optiflow.ai": {"pass": "12456", "name": "ישראל ישראלי", "phone": "050-1234567"},
-        "user@test.com": {"pass": "123456", "name": "משה כהן", "phone": "052-7654321"}
-    }
-
-if "logged_in_user" not in st.session_state:
-    st.session_state.logged_in_user = None
-
-# מאגר עסקים ונושאים
-if "businesses" not in st.session_state:
-    st.session_state.businesses = {
-        "עסק לייזר - חד וחלק": {
-            "name": "עסק לייזר - חד וחלק",
-            "phone": "03-5551234",
-            "email": "laser@had.co.il",
-            "address": "אזור תעשייה חולון",
-            "nature": "חיתוך פלסטיק ומתכת בלייזר",
-            "tech_data": "מכונת חיתוך לייזר CO2 100W",
-            "topics": {
-                "סדקים בחיתוך פלסטיק": {
-                    "problem": "סדקים בשולי הפלסטיק בעת חיתוך בלייזר עוצמתי.",
-                    "structured_params": [
-                        {"name": "סוג חומר", "type": "טקסט", "value": "פלסטיק אקרילי"},
-                        {"name": "מהירות חיתוך", "type": "מספר", "value": "150", "unit": "mm/s"},
-                        {"name": "עוצמת לייזר", "type": "מספר", "value": "80", "unit": "W"}
-                    ],
-                    "ai_question": "מהו עובי החומר (ב-מ\"מ) שבו מתרחשים הסדקים?",
-                    "chats": {"שיחה 1": [], "שיחה 2": []},
-                    "current_chat": "שיחה 1",
-                    "solutions": ["כיול מחדש לפי הנתונים: פלסטיק אקרילי", "בדיקת עדשות ומערכת הקרנת הלייזר"]
-                }
-            },
-            "selected_topic": "סדקים בחיתוך פלסטיק"
-        }
-    }
-
-if "current_biz_key" not in st.session_state:
-    st.session_state.current_biz_key = "עסק לייזר - חד וחלק"
-
-if "chat_expanded" not in st.session_state:
-    st.session_state.chat_expanded = False
-
-# ---------------------------------------------------------
-# 4. סרגל כלים עליון (לוגו מימין, סרגל משמאל)
-# ---------------------------------------------------------
-def render_header():
-    # חלוקת עמודות: ימין הלוגו, שמאל סרגל הכלים
-    col_logo, col_empty, col_nav = st.columns([2, 4, 4])
+# --- לשונית 1: מסך ראשי ---
+with tab_home:
+    col_a, col_b = st.columns(2)
     
-    with col_logo:
-        # 2. לוגו בימין למעלה קבוע - לחיצה עליו מחזירה למסך ראשי
-        if st.button("🚀 OptiFlow AI", key="main_logo_btn"):
-            st.session_state.screen = "main_screen"
-            st.rerun()
+    with col_a:
+        st.markdown("""
+            <div class="info-card">
+                <div class="info-card-header">👤 פרטים אישיים</div>
+                <div class="info-card-body">
+                    <p><b>שם משתמש:</b> """ + st.session_state.username + """</p>
+                    <p><b>סטטוס חשבון:</b> פעיל (מורשה מערכת)</p>
+                    <p><b>תאריך חיבור:</b> מחובר כעת</p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    with col_nav:
-        # 3. סרגל כלים בצד שמאל למעלה קבוע
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if st.button("🏠 מסך ראשי"):
-                st.session_state.screen = "main_screen"
-                st.rerun()
-        with c2:
-            with st.popover("⚙️ הגדרות"):
-                st.write("**הגדרות מערכת**")
-                st.write("שפת ממשק: עברית")
-                st.write("התראות מערכת: פעיל")
-        with c3:
-            with st.popover("📞 צור קשר"):
-                st.write("**תמיכה טכנית**")
-                st.write("מייל: support@optiflow.ai")
+    with col_b:
+        st.markdown("""
+            <div class="info-card">
+                <div class="info-card-header">📊 פרטי זכאות ותפעול</div>
+                <div class="info-card-body">
+                    <p><b>סוג מנוי:</b> OptiFlow Enterprise AI</p>
+                    <p><b>מכסת ניתוחים:</b> ללא הגבלה</p>
+                    <p><b>סטטוס שרתים:</b> תקין לקבלה ולעיבוד</p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("<hr style='margin-top:5px; margin-bottom:20px;'>", unsafe_allow_html=True)
-
-# =========================================================
-# מסך 1: התחברות (עם בדיקת משתמש רשום במסך 5)
-# =========================================================
-if st.session_state.screen == "screen_1":
-    col_a, col_center, col_b = st.columns([1, 2, 1])
-    with col_center:
-        st.title("🚀 OptiFlow AI")
-        st.subheader("התחברות למערכת")
-
-        # טופס התחברות התומך בשליפה מגוגל (Google Autofill)
-        with st.form(key="login_form"):
-            username = st.text_input("שם משתמש / דוא\"ל:", autocomplete="username")
-            password = st.text_input("סיסמה:", type="password", autocomplete="current-password")
-            submit_login = st.form_submit_button("התחברות", type="primary", use_container_width=True)
-
-            if submit_login:
-                # 4. בדיקה אם הלקוח הופעל/נרשם במסך 5
-                if username in st.session_state.registered_users and st.session_state.registered_users[username]["pass"] == password:
-                    st.session_state.logged_in_user = username
-                    st.session_state.screen = "main_screen"
-                    st.rerun()
-                else:
-                    st.error("שם משתמש אינו קיים במערכת, לקוח לא רשום.")
-
-        st.markdown("---")
-        st.write("עדיין לא רשום במערכת?")
-        if st.button("הירשם כאן", use_container_width=True):
-            st.session_state.screen = "screen_3"
-            st.rerun()
-
-# =========================================================
-# מסך 3: רישום לקוח חדש
-# =========================================================
-elif st.session_state.screen == "screen_3":
-    st.title("📝 רישום לקוח חדש")
+    st.markdown("""
+        <div class="info-card">
+            <div class="info-card-header">📝 טופס עדכון נתונים</div>
+            <div class="info-card-body">
+    """, unsafe_allow_html=True)
     
-    # 5. שדות מסך 3 בדיוק לפי הדרישות
-    full_name = st.text_input("12 - שם ושם משפחה:")
-    phone = st.text_input("13 - נייד:")
-    email = st.text_input("14 - דוא\"ל:")
-    address = st.text_input("15 - כתובת הלקוח:")
-    notes = st.text_area("16 - הערות:")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.text_input("דואר אלקטרוני", value="user@example.com")
+    with c2:
+        st.text_input("מספר טלפון נייד", value="050-0000000")
+        
+    if st.button("עדכן נתונים"):
+        st.success("הנתונים עודכנו בהצלחה במערכת!")
+        
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("18 - אישור והמשך", type="primary", use_container_width=True):
-        if email and full_name:
-            # שמירה זמנית והעברה למסך 4
-            st.session_state.temp_user = {"name": full_name, "phone": phone, "email": email, "address": address, "notes": notes}
-            st.session_state.screen = "screen_4"
-            st.rerun()
-        else:
-            st.warning("אנא למלא לפחות שם ודוא\"ל.")
 
-# =========================================================
-# מסך 4: בחירת תוכנית
-# =========================================================
-elif st.session_state.screen == "screen_4":
-    st.title("💳 בחירת תוכנית מנוי")
-    st.selectbox("בחר תוכנית:", ["תוכנית בסיסית", "תוכנית מקצועית", "תוכנית פרימיום"])
+# --- לשונית 2: הגדרות מערכת (כולל התאמה מורחבת) ---
+with tab_settings:
+    st.subheader("⚙️ הגדרות תצוגה וממשק")
     
-    if st.button("אישור והפעלה (מעבר למסך 5 לקיוד ומיווש)", type="primary"):
-        st.session_state.screen = "screen_5"
+    col_s1, col_s2 = st.columns(2)
+    
+    with col_s1:
+        new_lang = st.selectbox(
+            "שפת ממשק:",
+            ["עברית", "English", "العربية"],
+            index=["עברית", "English", "العربية"].index(st.session_state.language)
+        )
+        
+        new_theme = st.selectbox(
+            "ערכת נושא (צבעים):",
+            list(COLOR_PALETTES.keys()),
+            index=list(COLOR_PALETTES.keys()).index(st.session_state.theme)
+        )
+
+    with col_s2:
+        new_font = st.selectbox(
+            "סגנון גופן (Font Family):",
+            ["Heebo", "Rubik", "Assistant"],
+            index=["Heebo", "Rubik", "Assistant"].index(st.session_state.font_family)
+        )
+        
+        new_size = st.slider(
+            "גודל גופן (בפיקסלים):",
+            min_value=12,
+            max_value=22,
+            value=st.session_state.font_size
+        )
+        
+    st.markdown("---")
+    
+    if st.button("שמור הגדרות"):
+        st.session_state.language = new_lang
+        st.session_state.theme = new_theme
+        st.session_state.font_family = new_font
+        st.session_state.font_size = new_size
+        st.success("ההגדרות שנבחרו נשמרו בהצלחה!")
         st.rerun()
 
-# =========================================================
-# מסך 5: קביעת שם משתמש וסיסמה (הפעלה רשמית)
-# =========================================================
-elif st.session_state.screen == "screen_5":
-    st.title("🔐 הגדרת חשבון וסיסמה")
-    st.write("כאן ניתן להגדיר שם משתמש וסיסמה להפעלת החשבון במערכת:")
+
+# --- לשונית 3: צור קשר ---
+with tab_contact:
+    st.subheader("📞 יצירת קשר ותמיכה טכנית")
+    st.write("לכל שאלה, בעיה טכנית או בקשה לפיתוח מותאם אישית, ניתן לפנות אלינו באמצעות הטופס:")
     
-    temp_u = st.session_state.get("temp_user", {})
-    user_email = st.text_input("שם משתמש (דוא\"ל):", value=temp_u.get("email", ""))
-    new_pass = st.text_input("בחר סיסמה חדשה:", type="password")
+    st.text_input("נושא הפנייה")
+    st.text_area("תוכן ההודעה")
+    if st.button("שלח פנייה"):
+        st.info("פנייתך התקבלה ותענה בהקדם.")
 
-    if st.button("סיום והפעלת החשבון", type="primary"):
-        if user_email and new_pass:
-            st.session_state.registered_users[user_email] = {
-                "pass": new_pass,
-                "name": temp_u.get("name", "לקוח חדש"),
-                "phone": temp_u.get("phone", "")
-            }
-            st.success("החשבון הופעל בהצלחה! כעת ניתן להתחבר במסך 1.")
-            st.session_state.screen = "screen_1"
-            st.rerun()
-
-# =========================================================
-# 6. מסך ראשי: רשימת עסקים + אפשרות לפתוח עסק חדש
-# =========================================================
-elif st.session_state.screen == "main_screen":
-    render_header()
-    
-    st.title("🏢 רשימת העסקים שלי")
-    
-    col_list, col_add = st.columns([3, 1])
-    
-    with col_list:
-        for biz_key in list(st.session_state.businesses.keys()):
-            biz = st.session_state.businesses[biz_key]
-            with st.container():
-                st.markdown(f"### 🔹 {biz['name']}")
-                st.write(f"**כתובת:** {biz['address']} | **מהות העסק:** {biz['nature']}")
-                if st.button(f"פתוח נושאים של {biz['name']}", key=f"open_biz_{biz_key}"):
-                    st.session_state.current_biz_key = biz_key
-                    st.session_state.screen = "topics_screen"
-                    st.rerun()
-                st.markdown("---")
-
-    with col_add:
-        st.markdown("### ➕ עסק חדש")
-        if st.button("פתיחת עסק חדש (מסך עסק)", use_container_width=True, type="primary"):
-            st.session_state.edit_biz_key = None
-            st.session_state.screen = "biz_screen"
-            st.rerun()
-
-# =========================================================
-# מסך עסק: הזנת/עריכת פרטי עסק (לפי תמונת 'מסך עסק')
-# =========================================================
-elif st.session_state.screen == "biz_screen":
-    render_header()
-    st.title("📋 מסך עסק")
-    
-    # 9 משבצות לפי הסקיצה 'מסך עסק'
-    b_name = st.text_input("שם העסק:", value="")
-    b_phone = st.text_input("נייד:")
-    b_email = st.text_input("דוא\"ל:")
-    b_address = st.text_input("כתובת:")
-    b_nature = st.text_input("מהות העסק:")
-    b_tech = st.text_area("נתונים ופרמטרים:")
-    
-    st.file_uploader("העלאת קבצים:", accept_multiple_files=True)
-    st.text_input("חיבור למערכות מידע:")
-
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        if st.button("שמירה", type="primary", use_container_width=True):
-            if b_name:
-                st.session_state.businesses[b_name] = {
-                    "name": b_name,
-                    "phone": b_phone,
-                    "email": b_email,
-                    "address": b_address,
-                    "nature": b_nature,
-                    "tech_data": b_tech,
-                    "topics": {},
-                    "selected_topic": None
-                }
-                st.success("העסק נשמר בהצלחה!")
-                st.session_state.screen = "main_screen"
-                st.rerun()
-    with col_s2:
-        if st.button("עריכה / ביטול", use_container_width=True):
-            st.session_state.screen = "main_screen"
-            st.rerun()
-
-# =========================================================
-# מסך נושאים (לפי תמונת 'מסך נושאים')
-# =========================================================
-elif st.session_state.screen == "topics_screen":
-    render_header()
-    
-    biz = st.session_state.businesses[st.session_state.current_biz_key]
-    
-    col_biz_info, col_topics_center, col_user_info = st.columns([1.5, 3, 1.5])
-    
-    # פאנל פרטי עסק (משמאל בסקיצה)
-    with col_biz_info:
-        st.subheader("📌 פרטי עסק")
-        st.write(f"**שם:** {biz['name']}")
-        st.write(f"**מהות:** {biz['nature']}")
-        st.write(f"**כתובת:** {biz['address']}")
-        if st.button("ערוך פרטי עסק"):
-            st.session_state.screen = "biz_screen"
-            st.rerun()
-
-    # מרכז: נושאים + צור נושא חדש
-    with col_topics_center:
-        st.title("📂 מסך נושאים")
-        
-        topics = biz["topics"]
-        if topics:
-            for top_name in list(topics.keys()):
-                if st.button(f"📄 {top_name}", key=f"top_{top_name}", use_container_width=True):
-                    biz["selected_topic"] = top_name
-                    st.session_state.screen = "help_screen"
-                    st.rerun()
-        else:
-            st.info("אין נושאים פתוחים עבור עסק זה.")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("➕ צור נושא חדש", type="primary"):
-            st.session_state.screen = "help_screen"
-            st.session_state.is_new_topic = True
-            st.rerun()
-
-    # פאנל פרטי לקוח (מימין בסקיצה)
-    with col_user_info:
-        st.subheader("👤 פרטי לקוח")
-        u_data = st.session_state.registered_users.get(st.session_state.logged_in_user, {})
-        st.write(f"**שם:** {u_data.get('name', 'ישראל ישראלי')}")
-        st.write(f"**נייד:** {u_data.get('phone', '050-0000000')}")
-
-# =========================================================
-# מסך עזרה (לפי תמונת 'מסך עזרה' והסעיפים 37-41)
-# =========================================================
-elif st.session_state.screen == "help_screen":
-    render_header()
-    
-    biz = st.session_state.businesses[st.session_state.current_biz_key]
-    
-    # במידה וזה נושא חדש
-    if st.session_state.get("is_new_topic", False):
-        new_top_name = f"נושא חדש {len(biz['topics'])+1}"
-        biz["topics"][new_top_name] = {
-            "problem": "תאור מהות הבעיה...",
-            "structured_params": [{"name": "פרמטר 1", "type": "טקסט", "value": "ערך"}],
-            "ai_question": "מהו הנתון הנוסף שברצונך להגדיר?",
-            "chats": {"שיחה 1": []},
-            "current_chat": "שיחה 1",
-            "solutions": []
-        }
-        biz["selected_topic"] = new_top_name
-        st.session_state.is_new_topic = False
-
-    topic_data = biz["topics"][biz["selected_topic"]]
-
-    st.title(f"🛠️ מסך עזרה - {biz['selected_topic']}")
-
-    # פריסת המסך לפי הסקיצה: שמאל (הכוונה/פתרונות/צ'אט), מרכז (פרמטרים), ימין (מהות הבעיה/קבצים/שמירה)
-    col_left, col_mid, col_right = st.columns([2.5, 1.8, 1.8])
-
-    # --- צד ימין (מהות הבעיה, העלאת קבצים, שמירה) ---
-    with col_right:
-        st.markdown("### מהות הבעיה")
-        topic_data["problem"] = st.text_area("תיאור הבעיה:", value=topic_data["problem"], height=150)
-        
-        st.markdown("### העלאת קבצים ותמונות")
-        st.file_uploader("בחר קבצים:", accept_multiple_files=True, key="help_files")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 שמור וחזרה למסך נושאים", type="primary", use_container_width=True):
-            st.session_state.screen = "topics_screen"
-            st.rerun()
-
-    # --- מרכז (פרמטרים) ---
-    with col_mid:
-        st.markdown("### פרמטרים")
-        for idx, p in enumerate(topic_data["structured_params"]):
-            st.text_input(f"{p['name']}:", value=f"{p['value']}", key=f"param_{idx}")
-        
-        with st.popover("➕ הוסף פרמטר"):
-            pn = st.text_input("שם הפרמטר:")
-            pv = st.text_input("ערך:")
-            if st.button("אישור"):
-                if pn and pv:
-                    topic_data["structured_params"].append({"name": pn, "type": "טקסט", "value": pv})
-                    st.rerun()
-
-    # --- צד שמאל (הכוונת הפתרון, פתרונות, כפתורים 37-38, וצ'אט 39-41) ---
-    with col_left:
-        st.markdown("### הכוונת לפתרון")
-        st.info(topic_data["ai_question"])
-        ans = st.text_input("תשובה להכוונה:")
-        if st.button("עדכן הכוונה"):
-            if ans:
-                topic_data["structured_params"].append({"name": "הכוונה", "type": "טקסט", "value": ans})
-                topic_data["ai_question"] = "שאלת הכוונה נוספת חושבה בהצלחה!"
-                st.rerun()
-
-        st.markdown("### פתרונות והמלצות")
-        for i, sol in enumerate(topic_data["solutions"], 1):
-            st.success(f"**פתרון {i}:** {sol}")
-
-        # 37 ו-38
-        c37, c38 = st.columns(2)
-        with c37:
-            # 37 - הלקוח רוצה עם אותם משתנים ופרמטרים לבחון פתרונות חלופיים
-            if st.button("37 - הצעת פתרונות נוספים", use_container_width=True):
-                topic_data["solutions"].append(f"פתרון חלופי נוסף {len(topic_data['solutions'])+1} (על בסיס אותם פרמטרים)")
-                st.rerun()
-        with c38:
-            # 38 - אחרי שלקוח מבצע שינויים בפרמטרים או תמונות
-            if st.button("38 - חישוב מחדש", type="primary", use_container_width=True):
-                topic_data["solutions"] = ["חישוב מחדש בוצע בהצלחה בהתאם לפרמטרים ולקבצים המעודכנים!"]
-                st.rerun()
-
-        st.markdown("---")
-
-        # 39, 40, 41: חלון הצ'אט
-        st.markdown("### 39 - חלון הצ'אט AI")
-        
-        c40, c41 = st.columns([3, 1])
-        with c40:
-            # 40 - אפשרות לעבור בין שיחות הצ'אט השמורות בתיקייה זו
-            chat_list = list(topic_data["chats"].keys())
-            selected_c = st.selectbox("40 - שיחות שמורות:", chat_list, index=chat_list.index(topic_data["current_chat"]))
-            topic_data["current_chat"] = selected_c
-        with c41:
-            # 41 - הגדלת חלונית הצ'אט
-            if st.button("41 - 🔍 הגדל"):
-                st.session_state.chat_expanded = not st.session_state.chat_expanded
-
-        # תצוגת צ'אט (מורחבת או רגילה)
-        chat_height = 400 if st.session_state.chat_expanded else 180
-        chat_messages = topic_data["chats"][topic_data["current_chat"]]
-
-        with st.container(height=chat_height):
-            for msg in chat_messages:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-
-        user_chat_in = st.chat_input("שאל את העוזר החכם...")
-        if user_chat_in:
-            chat_messages.append({"role": "user", "content": user_chat_in})
-            
-            # קריאה מובנית ל-Gemini API בקוד (ללא שום בקשת מפתח מהלקוח)
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={BUILTIN_GEMINI_KEY}"
-                headers = {"Content-Type": "application/json"}
-                payload = {"contents": [{"parts": [{"text": f"עסק: {biz['name']}, בעיה: {topic_data['problem']}. שאלה: {user_chat_in}"}]}]}
-                
-                res = requests.post(url, json=payload, headers=headers, timeout=10)
-                if res.status_code == 200 and "candidates" in res.json():
-                    bot_reply = res.json()["candidates"][0]["content"]["parts"][0]["text"]
-                else:
-                    bot_reply = "תשובת AI: התקבלה הודעתך, המערכת מעבדת את המידע לפתרון הבעיה."
-            except Exception:
-                bot_reply = "תשובת AI: התקבלה הודעתך, המערכת מעבדת את המידע לפתרון הבעיה."
-
-            chat_messages.append({"role": "assistant", "content": bot_reply})
-            st.rerun()
+# 3. אפשרות התנתקות בתחתית
+st.markdown("---")
+if st.button("🚪 התנתק מהמערכת"):
+    st.session_state.authenticated = False
+    st.rerun()

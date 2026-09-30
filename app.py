@@ -4,7 +4,7 @@ import json
 import os
 
 # ---------------------------------------------------------
-# 1. הגדרות תצורת עמוד ועיצוב בסיסי
+# 1. הגדרות תצורת עמוד
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="OptiFlow AI - פלטפורמה חכמה",
@@ -13,19 +13,43 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# שליפת מפתח API של Gemini
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 
 # ---------------------------------------------------------
-# 2. ניהול Session State (מצבי מסכים, משתמשים והגדרות)
+# 2. אתחול Session State ומסד נתונים פנימי לפי עסקים ותיקיות
 # ---------------------------------------------------------
 if "screen" not in st.session_state:
-    st.session_state.screen = "screen_1"  # screen_1, screen_2, screen_3, screen_4, screen_5, main_screen, profile_screen
+    st.session_state.screen = "screen_1"
 
 if "show_password" not in st.session_state:
     st.session_state.show_password = False
 
-# הגדרות עיצוב ומשתמש (סרגל כלים)
+# מאגר הנתונים המופרד לכל עסק
+if "businesses" not in st.session_state:
+    st.session_state.businesses = {
+        "חד וחלק": {
+            "nature": "חיתוך פלסטיק בלייזר",
+            "address": "אזור תעשייה",
+            "tech_data": "מכונת חיתוך לייזר CO2 100W, תוכנת AutoCAD",
+            "folders": {
+                "תיקייה ראשית": {
+                    "problem": "סדקים בשולי הפלסטיק בעת חיתוך בלייזר עוצמתי.",
+                    "params": "מהירות: 150mm/s, עוצמה: 80W",
+                    "chats": {
+                        "שיחה ראשית": []
+                    },
+                    "current_chat": "שיחה ראשית",
+                    "solutions": []
+                }
+            },
+            "current_folder": "תיקייה ראשית"
+        }
+    }
+
+if "current_business" not in st.session_state:
+    st.session_state.current_business = "חד וחלק"
+
+# הגדרות תצוגה
 if "theme_color" not in st.session_state:
     st.session_state.theme_color = "כחול"
 if "font_family" not in st.session_state:
@@ -33,53 +57,53 @@ if "font_family" not in st.session_state:
 if "language" not in st.session_state:
     st.session_state.language = "עברית"
 
-# נתוני עסק וסביבת עבודה
-if "business_name" not in st.session_state:
-    st.session_state.business_name = "חד וחלק"
-if "business_nature" not in st.session_state:
-    st.session_state.business_nature = "חיתוך פלסטיק בלייזר"
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# ---------------------------------------------------------
+# פונקציות עזר לשליפת/עדכון הנתונים של העסק הנוכחי
+# ---------------------------------------------------------
+def get_biz():
+    return st.session_state.businesses[st.session_state.current_business]
+
+def get_folder():
+    biz = get_biz()
+    return biz["folders"][biz["current_folder"]]
 
 # ---------------------------------------------------------
-# פונקציות עזר וסרגל כלים עליון (כפתור 35 + 42-46)
+# סרגל כלים עליון
 # ---------------------------------------------------------
 def render_toolbar():
-    """רכיב סרגל הכלים (35) המופיע במסך הראשי ובמסכים הפעילים"""
     st.markdown("---")
-    tb_col1, tb_col2, tb_col3, tb_col4, tb_col5, tb_space, tb_biz, tb_logo = st.columns([1.5, 2, 2, 2, 1.5, 2, 2, 1])
+    tb_logo, tb_biz, tb_s1, tb_s2, tb_s3, tb_s4 = st.columns([1.5, 2.5, 1.5, 1.5, 1.5, 1.5])
     
     with tb_logo:
-        # כפתור 26: לוגו התוכנה -> מחזיר למסך הראשי
         if st.button("🚀 OptiFlow", key="tb_logo_btn", use_container_width=True):
             st.session_state.screen = "main_screen"
             st.rerun()
 
     with tb_biz:
-        # כפתור 27: דפדף בין עסקים
-        st.selectbox("עסק פעיל (27):", [st.session_state.business_name, "עסק משני בע''מ"], label_visibility="collapsed")
+        biz_list = list(st.session_state.businesses.keys())
+        selected_b = st.selectbox("עסק פעיל:", biz_list, index=biz_list.index(st.session_state.current_business), label_visibility="collapsed")
+        if selected_b != st.session_state.current_business:
+            st.session_state.current_business = selected_b
+            st.rerun()
 
-    with tb_col1:
-        # כפתור 42: הגדרות הלקוח (שפה, גופן, צבע)
-        with st.popover("⚙️ הגדרות (42)"):
+    with tb_s1:
+        with st.popover("⚙️ הגדרות"):
             st.session_state.language = st.selectbox("שפה:", ["עברית", "English", "العربية"])
             st.session_state.font_family = st.selectbox("גופן:", ["Rubik", "Segoe UI", "Arial"])
             st.session_state.theme_color = st.selectbox("צבע נושא:", ["כחול", "כהה", "ירוק"])
 
-    with tb_col2:
-        # כפתור 43: מעבר למסך פרטי הלקוח
-        if st.button("👤 פרטי עסק (43)", use_container_width=True):
+    with tb_s2:
+        if st.button("👤 פרטי עסק", use_container_width=True):
             st.session_state.screen = "profile_screen"
             st.rerun()
 
-    with tb_col3:
-        # כפתור 45: פתיחת עסק / תיקייה נוספת
-        if st.button("➕ עסק נוסף (45)", use_container_width=True):
-            st.toast("פתיחת עסק נוסף מותנית בהרחבת התוכנית העסקית.", icon="ℹ️")
+    with tb_s3:
+        if st.button("➕ עסק נוסף", use_container_width=True):
+            st.session_state.screen = "screen_3"
+            st.rerun()
 
-    with tb_col4:
-        # כפתור 46: צור קשר
-        with st.popover("📞 צור קשר (46)"):
+    with tb_s4:
+        with st.popover("📞 צור קשר"):
             st.write("**תמיכה טכנית ושירות לקוחות**")
             st.write("מייל: support@optiflow.ai")
             st.write("טלפון: 077-0000000")
@@ -87,34 +111,30 @@ def render_toolbar():
     st.markdown("---")
 
 # =========================================================
-# מסך 1: התחברות ראשונית
+# מסך 1: התחברות
 # =========================================================
 if st.session_state.screen == "screen_1":
     col_a, col_center, col_b = st.columns([1, 2, 1])
     with col_center:
-        # 1. לוגו התוכנה (לחיצה מחזירה למסך ראשי אם מחובר)
-        st.title("🚀 OptiFlow AI (1)")
+        st.title("🚀 OptiFlow AI")
         st.subheader("התחברות למערכת")
 
-        # 2. שם משתמש
-        username = st.text_input("שם משתמש (2):")
+        username = st.text_input("שם משתמש:")
 
-        # 3. סיסמה + לחצן עין לצפייה
         col_pass, col_eye = st.columns([5, 1])
         with col_pass:
             pwd_type = "text" if st.session_state.show_password else "password"
-            password = st.text_input("סיסמה (3):", type=pwd_type)
+            password = st.text_input("סיסמה:", type=pwd_type)
         with col_eye:
-            st.write("") # מרווח
             st.write("")
-            if st.button("👁️", help="הצג/הסתר סיסמה"):
+            st.write("")
+            if st.button("👁️️", help="הצג/הסתר סיסמה"):
                 st.session_state.show_password = not st.session_state.show_password
                 st.rerun()
 
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            # 5. התחברות
-            if st.button("התחברות (5)", type="primary", use_container_width=True):
+            if st.button("התחברות", type="primary", use_container_width=True):
                 if username and password:
                     st.session_state.screen = "main_screen"
                     st.rerun()
@@ -122,38 +142,33 @@ if st.session_state.screen == "screen_1":
                     st.error("אנא הכנס שם משתמש וסיסמה תקינים.")
 
         with col_btn2:
-            # 4. שכחתי שם משתמש או סיסמה -> מעביר למסך 2
-            if st.button("שכחתי פרטים (4)", use_container_width=True):
+            if st.button("שכחתי פרטים", use_container_width=True):
                 st.session_state.screen = "screen_2"
                 st.rerun()
 
         st.markdown("---")
-        # 6. הירשם -> מעביר למסך 3
-        if st.button("לקוח חדש? הירשם כאן (6)", use_container_width=True):
+        if st.button("לקוח חדש? הירשם כאן", use_container_width=True):
             st.session_state.screen = "screen_3"
             st.rerun()
 
 # =========================================================
-# מסך 2: שחזור סיסמה ושליחת קוד
+# מסך 2: שחזור סיסמה
 # =========================================================
 elif st.session_state.screen == "screen_2":
     col_a, col_center, col_b = st.columns([1, 2, 1])
     with col_center:
-        st.title("🔑 שחזור סיסמה (מסך 2)")
+        st.title("🔑 שחזור סיסמה")
         
-        # 7. דוא"ל | 8. נייד
-        email = st.text_input("דוא''ל (7):")
-        mobile = st.text_input("נייד (8):")
+        email = st.text_input("דוא''ל:")
+        mobile = st.text_input("נייד:")
 
         col_s1, col_s2 = st.columns(2)
         with col_s1:
-            # 9. שליחת קוד במייל
-            if st.button("שליחת קוד במייל (9)", use_container_width=True):
+            if st.button("שליחת קוד במייל", use_container_width=True):
                 st.info(f"קוד אימות נשלח לכתובת {email}")
 
         with col_s2:
-            # 10. שליחת סיסמה בנייד (פותח שאילתא לבחירה)
-            with st.popover("שליחת סיסמה בנייד (10)"):
+            with st.popover("שליחת סיסמה בנייד"):
                 st.write("בחר אמצעי לקבלת הקוד:")
                 if st.button("📱 SMS"):
                     st.success("קוד נשלח ב-SMS")
@@ -163,87 +178,98 @@ elif st.session_state.screen == "screen_2":
                     st.success("שיחה קולית בדרך אליך")
 
         st.markdown("---")
-        # 11. אימות סיסמה שנשלחה
-        auth_code = st.text_input("הכנס קוד אימות שקיבלת (11):")
+        auth_code = st.text_input("הכנס קוד אימות שקיבלת:")
         if st.button("אמת קוד והמשך", type="primary", use_container_width=True):
-            if auth_code == "1234" or len(auth_code) > 2:
+            if len(auth_code) >= 2:
                 st.session_state.screen = "screen_5"
                 st.rerun()
             else:
-                st.error("סיסמה שגויה. נסה שנית או לחץ על שליחה מחדש.")
+                st.error("סיסמה שגויה. נסה שנית.")
 
 # =========================================================
-# מסך 3: הרשמת לקוח חדש
+# מסך 3: הרשמת לקוח חדש / הוספת עסק
 # =========================================================
 elif st.session_state.screen == "screen_3":
     col_a, col_center, col_b = st.columns([1, 2, 1])
     with col_center:
-        st.title("📝 הרשמת לקוח חדש (מסך 3)")
+        st.title("📝 הרשמה והוספת עסק")
         
         c1, c2 = st.columns(2)
         with c1:
-            # 12. שם ושם משפחה | 13. נייד | 14. דוא"ל
-            full_name = st.text_input("שם ושם משפחה (12):")
-            mobile = st.text_input("נייד (13):")
-            email = st.text_input("דוא''ל (14):")
+            full_name = st.text_input("שם ושם משפחה:")
+            mobile = st.text_input("נייד:")
+            email = st.text_input("דוא''ל:")
         with c2:
-            # 15. שם העסק | 16. מהות העסק | 17. כתובת
-            biz_name = st.text_input("שם העסק (15):", value=st.session_state.business_name)
-            biz_nature = st.text_input("מהות העסק (16):", value=st.session_state.business_nature)
-            biz_address = st.text_input("כתובת העסק (17):")
+            biz_name = st.text_input("שם העסק:")
+            biz_nature = st.text_input("מהות העסק:")
+            biz_address = st.text_input("כתובת העסק:")
 
-        # 18. אישור והמשך -> מוביל למסך 4
-        if st.button("אישור והמשך לבחירת תוכנית (18) ➔", type="primary", use_container_width=True):
-            st.session_state.business_name = biz_name
-            st.session_state.business_nature = biz_nature
-            st.session_state.screen = "screen_4"
-            st.rerun()
+        if st.button("אישור והמשך לבחירת תוכנית ➔", type="primary", use_container_width=True):
+            if biz_name:
+                # יצירת העסק במערכת הנתונים המבודדת
+                st.session_state.businesses[biz_name] = {
+                    "nature": biz_nature,
+                    "address": biz_address,
+                    "tech_data": "",
+                    "folders": {
+                        "תיקייה ראשית": {
+                            "problem": "",
+                            "params": "",
+                            "chats": {"שיחה ראשית": []},
+                            "current_chat": "שיחה ראשית",
+                            "solutions": []
+                        }
+                    },
+                    "current_folder": "תיקייה ראשית"
+                }
+                st.session_state.current_business = biz_name
+                st.session_state.screen = "screen_4"
+                st.rerun()
+            else:
+                st.error("אנא הכנס שם עסק.")
 
 # =========================================================
-# מסך 4: בחירת תוכנית וסליקה
+# מסך 4: בחירת תוכנית
 # =========================================================
 elif st.session_state.screen == "screen_4":
-    st.title("💳 בחירת תוכנית שירות (מסך 4)")
-    st.caption("סקיצה לבחירת מנוי ומעבר למערכת סליקה")
+    st.title("💳 בחירת תוכנית שירות")
 
     p1, p2, p3 = st.columns(3)
     with p1:
-        st.subheader("תוכנית חודשית (19)")
+        st.subheader("תוכנית חודשית")
         st.write("₪199 / חודש")
         if st.button("בחר חודשי מעבר לסליקה", use_container_width=True):
             st.session_state.screen = "screen_5"
             st.rerun()
 
     with p2:
-        st.subheader("תוכנית שנתית (20)")
+        st.subheader("תוכנית שנתית")
         st.write("₪1,990 / שנה")
         if st.button("בחר שנתי מעבר לסליקה", type="primary", use_container_width=True):
             st.session_state.screen = "screen_5"
             st.rerun()
 
     with p3:
-        st.subheader("תוכנית פרימיום (21)")
+        st.subheader("תוכנית פרימיום")
         st.write("₪3,490 / שנה")
         if st.button("בחר פרימיום מעבר לסליקה", use_container_width=True):
             st.session_state.screen = "screen_5"
             st.rerun()
 
 # =========================================================
-# מסך 5: יצירת שם משתמש וסיסמה חדשים
+# מסך 5: סיסמה חדשה
 # =========================================================
 elif st.session_state.screen == "screen_5":
     col_a, col_center, col_b = st.columns([1, 2, 1])
     with col_center:
-        st.title("🔐 הגדרת פרטי התחברות חדשים (מסך 5)")
+        st.title("🔐 הגדרת פרטי התחברות חדשים")
         
-        # 22. שם משתמש חדש
-        new_user = st.text_input("שם משתמש חדש (22):")
+        new_user = st.text_input("שם משתמש חדש:")
 
-        # 23. סיסמה חדשה עם עין
         c_pass, c_eye = st.columns([5, 1])
         with c_pass:
             p_type = "text" if st.session_state.show_password else "password"
-            new_pass = st.text_input("סיסמה חדשה (23):", type=p_type)
+            new_pass = st.text_input("סיסמה חדשה:", type=p_type)
         with c_eye:
             st.write("")
             st.write("")
@@ -251,120 +277,183 @@ elif st.session_state.screen == "screen_5":
                 st.session_state.show_password = not st.session_state.show_password
                 st.rerun()
 
-        # 24. אימות סיסמה
-        confirm_pass = st.text_input("אימות סיסמה חדשה (24):", type="password")
+        confirm_pass = st.text_input("אימות סיסמה חדשה:", type="password")
 
-        # 25. אישור והמשך -> מחזיר למסך 1 להתחברות
-        if st.button("אישור והמשך להתחברות (25)", type="primary", use_container_width=True):
-            if new_pass == confirm_pass:
-                st.success("הפרטים עודכנו בהצלחה! כעת ניתן להתחבר.")
+        if st.button("אישור והמשך להתחברות", type="primary", use_container_width=True):
+            if new_pass and new_pass == confirm_pass:
+                st.success("הפרטים עודכנו בהצלחה!")
                 st.session_state.screen = "screen_1"
                 st.rerun()
             else:
                 st.error("הסיסמאות אינן תואמות.")
 
 # =========================================================
-# מסך ראשי: פאנל העבודה המרכזי (26-41)
+# מסך ראשי: פעיל ומחובר למסד נתונים דינמי
 # =========================================================
 elif st.session_state.screen == "main_screen":
-    render_toolbar() # 35: סרגל כלים עליון קבוע
+    render_toolbar()
 
-    # גריד ראשי לפי התרשים של מסך ראשי
+    biz = get_biz()
+    folder = get_folder()
+
     row1_left, row1_mid, row1_right = st.columns([2, 1.5, 1.5])
 
-    # 36. פתרונות + 37 + 38
+    # --- צד שמאל: פתרונות והמלצות ---
     with row1_left:
-        st.subheader("💡 פתרונות והמלצות (36)")
-        st.info("כאן יוצגו הפתרונות המנותחים על ידי המערכת בהתאם לנתוני העסק.")
+        st.subheader("💡 פתרונות והמלצות")
         
+        if folder["solutions"]:
+            for i, sol in enumerate(folder["solutions"], 1):
+                st.success(f"**פתרון {i}:** {sol}")
+        else:
+            st.info("לחץ על 'חישוב מחדש' או 'הצעת פתרונות נוספים' לקבלת המלצות ה-AI.")
+
         btn_c1, btn_c2 = st.columns(2)
         with btn_c1:
-            # 37. הצעת פתרונות נוספים (אותם פרמטרים)
-            if st.button("הצעת פתרונות נוספים (37)", use_container_width=True):
-                st.toast("מחשב פתרונות חלופיים באותם פרמטרים...")
+            if st.button("הצעת פתרונות נוספים", use_container_width=True):
+                new_sol = f"אופטימיזציית פרמטרים חלופית עבור {biz['nature']}: הורדת עוצמה ל-70W והגברת תדר."
+                folder["solutions"].append(new_sol)
+                st.rerun()
+
         with btn_c2:
-            # 38. חישוב מחדש (שינוי פרמטרים/תמונות)
-            if st.button("חישוב מחדש (38)", type="primary", use_container_width=True):
-                st.toast("מבצע חישוב מחדש לפי הנתונים המעודכנים!")
+            if st.button("חישוב מחדש", type="primary", use_container_width=True):
+                folder["solutions"] = [
+                    f"כיול מחדש לפי הנתונים: {folder['params']}",
+                    "בדיקת עדשות ומערכת הקרנת הלייזר"
+                ]
+                st.toast("החישוב בוצע מחדש בהצלחה!")
+                st.rerun()
 
-    # 32. כפתור / רכיב מבוסס AI להכוונה ושאלות
+    # --- מרכז: מנוע הכוונה AI ---
     with row1_mid:
-        st.subheader("🤖 מנוע הכוונה AI (32)")
-        st.write("מערכת השאלות החכמה לדיוק הנתונים:")
-        st.text_area("שאלת הכוונה מה-AI:", value="מהו סוג החומר העיקרי שאתה חותך בלייזר, ומאיזה עובי מתחיל הליקוי?", height=120)
-        st.button("שלח תשובה להכוונה", use_container_width=True)
+        st.subheader("🤖 מנוע הכוונה AI")
+        st.write("שאלת הכוונה לדיוק הנתונים:")
+        ai_question = st.text_area("הכוונת המערכת:", value=f"איזה סוג חומר מדויק משמש ב-{biz['nature']}?", height=100)
+        ai_answer = st.text_input("תשובתך להכוונה:")
+        if st.button("עדכן נתוני הכוונה", use_container_width=True):
+            if ai_answer:
+                folder["params"] += f" | הכוונה: {ai_answer}"
+                st.success("הנתונים עודכנו בהצלחה!")
+                st.rerun()
 
-    # 28, 29, 30, 31 - צד ימין
+    # --- צד ימין: ניהול התיקייה והזנת נתונים ---
     with row1_right:
-        # 28. תיקיות
-        st.selectbox("בחירת תיקייה (28):", ["תיקייה ראשית", "פרויקט לייזר X", "תקלת מכונה B"])
-        
-        # 29. פרט את מהות הבעיה
-        st.text_area("מהות הבעיה (29):", value="סדקים בשולי הפלסטיק בעת חיתוך בלייזר עוצמתי.", height=90)
-        
-        # 30. פרמטרים ונתונים
-        st.text_input("פרמטרים ונתונים (30):", value="מהירות: 150mm/s, עוצמה: 80W")
-        
-        # 31. העלאת תמונות וקבצים
-        st.file_uploader("העלאת תמונות וקבצים (31):", accept_multiple_files=True)
+        # ניהול תיקיות בעסק
+        folder_list = list(biz["folders"].keys())
+        selected_f = st.selectbox("בחירת תיקייה:", folder_list, index=folder_list.index(biz["current_folder"]))
+        if selected_f != biz["current_folder"]:
+            biz["current_folder"] = selected_f
+            st.rerun()
+
+        # כפתור ליצירת תיקייה חדשה
+        with st.popover("➕ פתח תיקייה חדשה"):
+            new_f_name = st.text_input("שם התיקייה החדשה:")
+            if st.button("צור תיקייה"):
+                if new_f_name and new_f_name not in biz["folders"]:
+                    biz["folders"][new_f_name] = {
+                        "problem": "",
+                        "params": "",
+                        "chats": {"שיחה ראשית": []},
+                        "current_chat": "שיחה ראשית",
+                        "solutions": []
+                    }
+                    biz["current_folder"] = new_f_name
+                    st.rerun()
+
+        # תיאור בעיה ופרמטרים - נשמרים ישירות בתיקייה הספציפית
+        new_prob = st.text_area("מהות הבעיה:", value=folder["problem"], height=80)
+        if new_prob != folder["problem"]:
+            folder["problem"] = new_prob
+
+        new_param = st.text_input("פרמטרים ונתונים:", value=folder["params"])
+        if new_param != folder["params"]:
+            folder["params"] = new_param
+
+        st.file_uploader("העלאת תמונות וקבצים:", accept_multiple_files=True)
 
     st.markdown("---")
 
-    # חלק תחתון: 39. חלון הצ'אט, 40. מעבר בין שיחות, 41. הגדלה
-    c_chat, c_info = st.columns([2, 1])
+    # --- חלק תחתון: צ'אט מופרד ומתוקן ---
+    c_chat, c_info = st.columns([3, 1])
     with c_chat:
-        st.subheader("💬 חלון צ'אט AI (39)")
+        st.subheader("💬 חלון צ'אט AI")
         
         col_ch1, col_ch2 = st.columns([3, 1])
         with col_ch1:
-            # 40. אפשרות לעבור בין שיחות צ'אט שמורות
-            st.selectbox("שיחות שמורות בתיקייה זו (40):", ["שיחה 1 - ניתוח חיתוך", "שיחה 2 - בדיקת פרמטרים"], label_visibility="collapsed")
-        with col_ch2:
-            # 41. הגדלת חלונית הצ'אט
-            if st.button("🔍 הגדל צ'אט (41)", use_container_width=True):
-                st.toast("תצוגת צ'אט מורחבת פעילה")
+            chat_list = list(folder["chats"].keys())
+            selected_chat = st.selectbox("שיחות שמורות בתיקייה זו:", chat_list, index=chat_list.index(folder["current_chat"]), label_visibility="collapsed")
+            if selected_chat != folder["current_chat"]:
+                folder["current_chat"] = selected_chat
+                st.rerun()
 
-        # רכיב הצ'אט מול Gemini API
-        for msg in st.session_state.chat_history:
+        with col_ch2:
+            with st.popover("➕ שיחה חדשה"):
+                new_chat_name = st.text_input("שם השיחה:")
+                if st.button("צור שיחה"):
+                    if new_chat_name and new_chat_name not in folder["chats"]:
+                        folder["chats"][new_chat_name] = []
+                        folder["current_chat"] = new_chat_name
+                        st.rerun()
+
+        # הצגת הודעות השיחה הנוכחית בלבד
+        current_messages = folder["chats"][folder["current_chat"]]
+        for msg in current_messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
+        # קלט צ'אט ופנייה יציבה ל-Gemini API
         user_input = st.chat_input("שאל את העוזר החכם בנוגע לבעיה...")
         if user_input:
+            # הוספת הודעת משתמש
+            current_messages.append({"role": "user", "content": user_input})
             st.chat_message("user").markdown(user_input)
-            st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-            if GEMINI_API_KEY:
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-                    headers = {"Content-Type": "application/json"}
-                    payload = {"contents": [{"role": "user", "parts": [{"text": f"אתה יועץ עבור עסק {st.session_state.business_name} ({st.session_state.business_nature}). ענה בקצרה ומקצועיות: {user_input}"}]}]}
-                    
-                    res = requests.post(url, json=payload, headers=headers).json()
-                    if "candidates" in res:
-                        reply = res["candidates"][0]["content"]["parts"][0]["text"]
-                        st.chat_message("assistant").markdown(reply)
-                        st.session_state.chat_history.append({"role": "assistant", "content": reply})
-                except Exception as e:
-                    st.error(f"שגיאה בתקשורת: {e}")
+            if not GEMINI_API_KEY:
+                st.error("אנא הכנס מפתח Gemini API בהגדרות המערכת.")
+            else:
+                with st.chat_message("assistant"):
+                    with st.spinner("חורז פתרון..."):
+                        try:
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+                            headers = {"Content-Type": "application/json"}
+                            
+                            prompt_context = f"אתה יועץ מומחה עבור עסק בשם '{st.session_state.current_business}' העוסק ב'{biz['nature']}'. הבעיה שפורטה: {folder['problem']}. פרמטרים: {folder['params']}. ענה בקצרה ובמקצועיות ללקוח: {user_input}"
+                            
+                            payload = {
+                                "contents": [{"parts": [{"text": prompt_context}]}]
+                            }
+
+                            res = requests.post(url, json=payload, headers=headers)
+                            res_json = res.json()
+
+                            if res.status_code == 200 and "candidates" in res_json:
+                                reply = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                                st.markdown(reply)
+                                current_messages.append({"role": "assistant", "content": reply})
+                            else:
+                                err_msg = res_json.get("error", {}).get("message", "שגיאה בתקשורת מול ה-API")
+                                st.error(f"שגיאה: {err_msg}")
+                        except Exception as e:
+                            st.error(f"אירעה שגיאה בחיבור: {e}")
 
 # =========================================================
-# מסך 43: מסך פרטי הלקוח והעסק (מתוך סרגל הכלים)
+# מסך פרטי הלקוח והעסק
 # =========================================================
 elif st.session_state.screen == "profile_screen":
     render_toolbar()
-    st.title("👤 מסך פרטי הלקוח והעסק (43)")
-    st.caption("נתונים אלו משמשים את ה-AI לשליפה אוטומטית בכל פתיחת נושא חדש")
+    st.title("👤 פרטי הלקוח והעסק")
+
+    biz = get_biz()
 
     col_p1, col_p2 = st.columns(2)
     with col_p1:
-        st.session_state.business_name = st.text_input("שם העסק:", value=st.session_state.business_name)
-        st.session_state.business_nature = st.text_input("מהות העסק:", value=st.session_state.business_nature)
-        st.text_area("נתונים טכניים ומכשור:", value="מכונת חיתוך לייזר CO2 100W, תוכנת AutoCAD, תוכנת LightBurn")
+        st.session_state.current_business = st.text_input("שם העסק:", value=st.session_state.current_business)
+        biz["nature"] = st.text_input("מהות העסק:", value=biz["nature"])
+        biz["address"] = st.text_input("כתובת העסק:", value=biz["address"])
 
     with col_p2:
-        st.text_area("תוכנות וחיבורים היקפיים:", value="חיבור ל-CRM, מערכת ניהול מלאי מדף")
-        st.checkbox("חיבור אוטומטי של פרטי העסק לכל נושא חדש", value=True)
+        biz["tech_data"] = st.text_area("נתונים טכניים ומכשור:", value=biz["tech_data"])
+        st.checkbox("סנכרון אוטומטי של הפרטים מול מנוע ה-AI", value=True)
 
     if st.button("💾 שמור נתונים וחזור למסך ראשי", type="primary"):
         st.success("הנתונים עודכנו בהצלחה!")
